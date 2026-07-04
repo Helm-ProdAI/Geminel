@@ -26,7 +26,10 @@ export async function GET() {
   if (services.supabase) {
     try {
       const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
-        headers: { apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY! },
+        headers: {
+          apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+        },
         signal: AbortSignal.timeout(3000),
       });
       supabaseReachable = res.ok;
