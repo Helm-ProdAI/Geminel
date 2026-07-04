@@ -25,7 +25,8 @@ export async function GET() {
   let supabaseReachable = false;
   if (services.supabase) {
     try {
-      const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
+      // Query a real table: new Supabase projects 401 the bare /rest/v1/ root
+      const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/brands?select=id&limit=1`, {
         headers: {
           apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
           Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
