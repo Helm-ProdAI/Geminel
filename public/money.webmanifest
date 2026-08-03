@@ -1,0 +1,19 @@
+{
+  "name": "Money — personal ledger",
+  "short_name": "Money",
+  "description": "Track spending, debts and goals in PHP.",
+  "start_url": "/money",
+  "scope": "/money",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070B1C",
+  "theme_color": "#070B1C",
+  "icons": [
+    {
+      "src": "/money-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
