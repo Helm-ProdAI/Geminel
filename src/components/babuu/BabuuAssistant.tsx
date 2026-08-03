@@ -6,7 +6,12 @@
 // data isolation rules apply everywhere.
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { X, Send, Minus } from "lucide-react";
+
+// Routes with their own bottom-anchored chrome, where the floating button
+// would sit on top of the navigation.
+const HIDDEN_ON = ["/money"];
 
 interface Msg {
   id: string;
@@ -28,6 +33,8 @@ export function BabuuAssistant() {
   const [loading, setLoading] = useState(false);
   const [brandId, setBrandId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const hidden = HIDDEN_ON.some((p) => pathname?.startsWith(p));
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Pick up the active brand so the assistant answers in-context
@@ -78,6 +85,8 @@ export function BabuuAssistant() {
       inputRef.current?.focus();
     }
   }
+
+  if (hidden) return null;
 
   if (!open) {
     return (
