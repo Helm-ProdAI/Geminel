@@ -19,7 +19,7 @@ export function Goals({ state, onAdd, onUpdate, onRemove }: Props) {
 
   const s = summarize(state);
   /** What is actually free each month, if income is known. */
-  const monthlySurplus = state.settings.monthlyIncome > 0 ? state.settings.monthlyIncome - s.projectedMonth : null;
+  const monthlySurplus = s.monthlySurplus;
 
   return (
     <div>
@@ -30,7 +30,7 @@ export function Goals({ state, onAdd, onUpdate, onRemove }: Props) {
         </div>
         <p className="mt-1 text-xs text-mist">
           {monthlySurplus === null
-            ? "Add your income in Settings and this becomes the number that funds every goal below."
+            ? "Log what comes in on the Income ledger and this becomes the number that funds every goal below."
             : monthlySurplus <= 0
               ? "You have no surplus at this burn rate. Goals below cannot be funded until spending drops or income rises."
               : "This is what you can move into goals each month without borrowing."}

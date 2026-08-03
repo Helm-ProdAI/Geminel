@@ -23,19 +23,52 @@ export function Overview({ state }: { state: FinanceState }) {
         </div>
       </Card>
 
+      {s.incomeIn > 0 ? (
+        <Card className="mt-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-mist/80">In</div>
+              <div className="whitespace-nowrap font-serif text-xl text-[#6EC4A0]">{peso(s.incomeIn, { compact: true })}</div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wider text-mist/80">Out</div>
+              <div className="whitespace-nowrap font-serif text-xl text-cloud">{peso(s.total, { compact: true })}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[11px] uppercase tracking-wider text-mist/80">Net</div>
+              <div
+                className={`whitespace-nowrap font-serif text-xl ${
+                  s.netThisPeriod >= 0 ? "text-[#6EC4A0]" : "text-[#F09A9A]"
+                }`}
+              >
+                {s.netThisPeriod >= 0 ? "+" : "−"}
+                {peso(Math.abs(s.netThisPeriod), { compact: true })}
+              </div>
+            </div>
+          </div>
+          {s.capitalReturned > 0 ? (
+            <p className="mt-2.5 border-t border-white/8 pt-2.5 text-xs text-mist">
+              {peso(s.capitalReturned)} of that was capital returning, not earnings. Without it the period is{" "}
+              {s.incomeIn - s.capitalReturned - s.total >= 0 ? "up " : "down "}
+              {peso(Math.abs(s.incomeIn - s.capitalReturned - s.total))}.
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
       <div className="mt-3 grid grid-cols-2 gap-3">
         <Stat label="Debt paid" value={peso(s.debtPaid)} sub={`${((s.debtPaid / s.total) * 100).toFixed(0)}% of spend`} />
-        <Stat label="Birthday (one-off)" value={peso(s.oneOff)} sub={`${((s.oneOff / s.total) * 100).toFixed(0)}% of spend`} />
         <Stat
-          label="Repeating burn"
-          value={peso(s.recurringBurn)}
-          sub="Excludes the birthday"
+          label="Won’t repeat"
+          value={peso(s.oneOff)}
+          sub={`${((s.oneOff / s.total) * 100).toFixed(0)}% of spend`}
         />
+        <Stat label="Repeating burn" value={peso(s.recurringBurn)} sub="Excludes one-offs" />
         <Stat
           label="Monthly run-rate"
           value={peso(s.projectedMonth)}
-          sub="Repeating burn × 30 days"
-          tone="alert"
+          sub="Each line on its own rhythm"
+          tone={s.monthlySurplus !== null && s.monthlySurplus < 0 ? "alert" : "default"}
         />
       </div>
 
@@ -51,14 +84,16 @@ export function Overview({ state }: { state: FinanceState }) {
             <Bar value={Math.max(0, s.savingsRate)} color={s.savingsRate < 0.2 ? "#F09A9A" : "#6EC4A0"} />
           </div>
           <p className="mt-2 text-xs text-mist">
-            Run-rate {peso(s.projectedMonth)} against income {peso(state.settings.monthlyIncome)}. Target is 20% or better.
+            Run-rate {peso(s.projectedMonth)} against {peso(s.monthlyIncome)} of income that repeats
+            {s.incomeIsOverride ? " (set manually)" : ""}. Target is 20% or better.
           </p>
         </Card>
       ) : (
         <Card className="mt-3 border-gold/30">
-          <p className="text-sm text-cloud">Add your monthly income in Settings</p>
+          <p className="text-sm text-cloud">Add your income</p>
           <p className="mt-1 text-xs text-mist">
-            Without it this app can show what you spent, but not whether you can afford it.
+            Log what comes in on the Income ledger, or set a figure in Settings. Without it this app can show what
+            you spent, but not whether you can afford it.
           </p>
         </Card>
       )}

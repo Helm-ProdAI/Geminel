@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Debts } from "@/components/money/Debts";
 import { Goals } from "@/components/money/Goals";
+import { IncomeList } from "@/components/money/IncomeList";
 import { Insights } from "@/components/money/Insights";
 import { Overview } from "@/components/money/Overview";
 import { Transactions } from "@/components/money/Transactions";
@@ -23,6 +24,7 @@ type TabId = (typeof TABS)[number]["id"];
 export default function MoneyPage() {
   const f = useFinance();
   const [tab, setTab] = useState<TabId>("overview");
+  const [ledgerSide, setLedgerSide] = useState<"out" | "in">("out");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -45,13 +47,38 @@ export default function MoneyPage() {
         <>
           {tab === "overview" && <Overview state={f.state} />}
           {tab === "transactions" && (
-            <Transactions
-              transactions={f.state.transactions}
-              periodStart={f.state.settings.periodStart}
-              onAdd={f.addTransaction}
-              onUpdate={f.updateTransaction}
-              onRemove={f.removeTransaction}
-            />
+            <>
+              <div className="mb-4 flex rounded-xl border border-white/10 p-1">
+                {(["out", "in"] as const).map((side) => (
+                  <button
+                    key={side}
+                    type="button"
+                    onClick={() => setLedgerSide(side)}
+                    className={`flex-1 rounded-lg py-2 text-sm transition ${
+                      ledgerSide === side ? "bg-gold/12 text-gold" : "text-mist"
+                    }`}
+                  >
+                    {side === "out" ? "Spending" : "Income"}
+                  </button>
+                ))}
+              </div>
+              {ledgerSide === "out" ? (
+                <Transactions
+                  transactions={f.state.transactions}
+                  periodStart={f.state.settings.periodStart}
+                  onAdd={f.addTransaction}
+                  onUpdate={f.updateTransaction}
+                  onRemove={f.removeTransaction}
+                />
+              ) : (
+                <IncomeList
+                  income={f.state.income}
+                  onAdd={f.addIncome}
+                  onUpdate={f.updateIncome}
+                  onRemove={f.removeIncome}
+                />
+              )}
+            </>
           )}
           {tab === "debts" && (
             <Debts debts={f.state.debts} onAdd={f.addDebt} onUpdate={f.updateDebt} onRemove={f.removeDebt} />
@@ -95,12 +122,12 @@ function SettingsPanel({ f }: { f: ReturnType<typeof useFinance> }) {
     <Card className="mb-5 border-gold/25">
       <SectionTitle>Settings</SectionTitle>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Monthly income">
+        <Field label="Income override">
           <Input
             type="number"
             inputMode="decimal"
             value={settings.monthlyIncome || ""}
-            placeholder="0.00"
+            placeholder="From Income ledger"
             onChange={(e) => f.updateSettings({ monthlyIncome: Number(e.target.value) || 0 })}
           />
         </Field>

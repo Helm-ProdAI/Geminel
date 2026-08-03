@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { peso } from "@/lib/finance/analytics";
+import { peso, TX_CADENCE_LABEL } from "@/lib/finance/analytics";
 import { CATEGORIES, CATEGORY_MAP } from "@/lib/finance/seed";
-import type { CategoryId, Transaction } from "@/lib/finance/types";
+import type { CategoryId, Transaction, TxCadence } from "@/lib/finance/types";
 import { Button, Card, Field, Input, SectionTitle, Select } from "./ui";
 
 interface Props {
@@ -77,6 +77,7 @@ export function Transactions({ transactions, periodStart, onAdd, onUpdate, onRem
                   <span className="block truncate text-sm text-cloud">{t.merchant}</span>
                   <span className="block truncate text-xs text-mist">
                     {cat.label}
+                    {t.cadence && t.cadence !== "period" ? ` · ${TX_CADENCE_LABEL[t.cadence].toLowerCase()}` : ""}
                     {t.note ? ` · ${t.note}` : ""}
                   </span>
                 </span>
@@ -133,6 +134,22 @@ export function Transactions({ transactions, periodStart, onAdd, onUpdate, onRem
                       onChange={(e) => onUpdate(t.id, { note: e.target.value })}
                     />
                   </Field>
+                  <Field label="How often this repeats">
+                    <Select
+                      value={t.cadence ?? "period"}
+                      onChange={(e) => onUpdate(t.id, { cadence: e.target.value as TxCadence })}
+                    >
+                      {(["period", "weekly", "monthly", "once"] as const).map((c) => (
+                        <option key={c} value={c}>
+                          {TX_CADENCE_LABEL[c]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <p className="-mt-1 text-[11px] text-mist/70">
+                    This is what the monthly run-rate projects from. A card installment that landed in this week is
+                    monthly, not every period.
+                  </p>
                   <Button
                     variant="danger"
                     onClick={() => {

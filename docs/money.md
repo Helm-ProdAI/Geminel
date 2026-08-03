@@ -26,10 +26,35 @@ for a data layer with the same shape; nothing else needs to change.
 | Tab | What it does |
 | --- | --- |
 | Overview | Period total, daily rate, debt vs one-off split, monthly run-rate, category breakdown |
-| Ledger | All transactions — search, filter by category, tap any row to edit or delete, `+ Add` for new |
+| Ledger | Two sides. **Spending**: search, filter, tap a row to edit or delete. **Income**: sources with a cadence that decides what counts as repeating |
 | Debts | Accounts ordered highest-APR-first (avalanche). Enter balances and rates to make the order meaningful |
 | Goals | Targets with progress, and months-to-target computed from your monthly surplus |
 | Advice | Generated findings and a five-step plan, recomputed from whatever is currently in the ledger |
+
+## How the run-rate is computed
+
+Projecting a single week by multiplying it by 30/7 is wrong whenever the week
+contained monthly commitments. This ledger did — roughly ₱36k of card and loan
+installments landed inside it — and naive scaling billed each of them four times
+over.
+
+So every line carries its own `cadence` and projects on its own rhythm:
+
+| Cadence | Monthly contribution |
+| --- | --- |
+| `once` | 0 — excluded entirely |
+| `period` (default) | `amount × 30 / periodDays` |
+| `weekly` | `amount × 52 / 12` |
+| `monthly` | `amount` |
+
+Income works the same way, which is what keeps a one-off lump sum from being
+multiplied into recurring income that does not exist. Income lines also carry
+`returnOfCapital` for money that is your own savings coming back rather than
+earnings — a paluwagan payout is the case here. It spends like income but must
+never be planned around, so it is excluded from every projection.
+
+Monthly income is derived from the income ledger. `settings.monthlyIncome` is a
+manual override, used only when non-zero.
 
 ## The seeded data
 
@@ -40,6 +65,10 @@ for a data layer with the same shape; nothing else needs to change.
   "date not recorded". Editing a row's date clears the flag.
 - **One exclusion.** A struck-through `4017.68 Manam` line appears in the notebook a
   second time; it is excluded, since that amount is already counted in the birthday block.
+- **Seeded cadences are judgement calls.** Card and loan lines (BPI, Atome, Shopee
+  loan, PNB, RCBC, Maribank) plus the two subscriptions are seeded `monthly`; the
+  birthday block and the vaccine are `once`. Everything else defaults to `period`.
+  All of it is editable per row.
 
 The birthday block reconciles exactly against the subtotal written in the notebook
 (₱42,365.45), which is the check that the transcription of that section is correct.

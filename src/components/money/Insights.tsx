@@ -1,6 +1,6 @@
 "use client";
 
-import { buildInsights } from "@/lib/finance/analytics";
+import { buildInsights, peso, summarize } from "@/lib/finance/analytics";
 import type { FinanceState } from "@/lib/finance/types";
 import { Card, SectionTitle } from "./ui";
 
@@ -13,6 +13,26 @@ const TONE = {
 
 export function Insights({ state }: { state: FinanceState }) {
   const insights = buildInsights(state);
+  const s = summarize(state);
+
+  // The plan reflects what is still missing, so finished steps drop off.
+  const steps = [
+    s.unlabeled > 0 &&
+      `Name the ${peso(s.unlabeled)} of unlabeled lines. You cannot cut spending you cannot see, and the memory fades fast.`,
+    state.debts.some((d) => d.balance <= 0 || d.apr === undefined) &&
+      "Enter every debt balance and APR under Debts. You are paying several lenders at once — you cannot prioritise without the rates.",
+    s.monthlyIncome <= 0 && "Log your income so the run-rate has something to be measured against.",
+    s.monthlySurplus !== null &&
+      s.monthlySurplus < 0 &&
+      `Close the ${peso(Math.abs(s.monthlySurplus))} monthly gap. Flexible spending is ${peso(
+        s.flexible
+      )} of this period — that is where the room is.`,
+    "Set one flexible-spending ceiling and hold it. Shopping, food and family transfers are where a cut is actually available.",
+    s.birthday > 0 &&
+      "Open a separate sinking fund for events. The birthday was a quarter of the period; the next one should be pre-funded, not absorbed.",
+    s.capitalReturned > 0 &&
+      "Decide where the paluwagan goes before it is spent. A lump sum with no job attached quietly becomes ordinary spending.",
+  ].filter((x): x is string => typeof x === "string");
 
   return (
     <div>
@@ -36,13 +56,7 @@ export function Insights({ state }: { state: FinanceState }) {
       <SectionTitle>The plan</SectionTitle>
       <Card>
         <ol className="flex flex-col gap-3 text-sm text-mist">
-          {[
-            "Name the unlabeled lines. Several thousand pesos have no merchant attached. Do this while you still remember the week.",
-            "Enter every debt balance and APR under Debts. You are paying five lenders at once — you cannot prioritise without the rates.",
-            "Put your monthly income into Settings. Until then no number here can tell you whether the burn is affordable.",
-            "Set one flexible-spending ceiling and hold it. Shopping, food and family transfers are where a cut is actually available.",
-            "Open a separate sinking fund for events. The birthday was a fifth of the period; the next one should be pre-funded, not absorbed.",
-          ].map((step, i) => (
+          {steps.map((step, i) => (
             <li key={i} className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gold/12 text-[11px] text-gold">
                 {i + 1}

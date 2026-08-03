@@ -1,5 +1,49 @@
 import { CATEGORY_MAP, CATEGORIES } from "./seed";
-import type { CategoryId, FinanceState, Transaction } from "./types";
+import type { Cadence, CategoryId, FinanceState, Income, Transaction, TxCadence } from "./types";
+
+/** How many times a cadence lands in a month. `once` never repeats. */
+const PER_MONTH: Record<Cadence, number> = {
+  once: 0,
+  weekly: 52 / 12,
+  semimonthly: 2,
+  monthly: 1,
+};
+
+export const CADENCE_LABEL: Record<Cadence, string> = {
+  once: "One-off",
+  weekly: "Weekly",
+  semimonthly: "Twice a month",
+  monthly: "Monthly",
+};
+
+export const TX_CADENCE_LABEL: Record<TxCadence, string> = {
+  once: "Won't repeat",
+  period: "Every period",
+  weekly: "Weekly",
+  monthly: "Monthly",
+};
+
+/**
+ * Monthly cost of one spending line. "period" scales by how many times this
+ * ledger period fits in a month; everything else is fixed by its own rhythm.
+ */
+export function monthlyCost(t: Transaction, periodDays: number): number {
+  switch (t.cadence ?? "period") {
+    case "once":
+      return 0;
+    case "monthly":
+      return t.amount;
+    case "weekly":
+      return t.amount * (52 / 12);
+    default:
+      return t.amount * (30 / periodDays);
+  }
+}
+
+/** Monthly value of a single income line, 0 for anything that does not repeat. */
+export function monthlyValue(i: Income): number {
+  return i.amount * PER_MONTH[i.cadence];
+}
 
 export function peso(n: number, opts: { compact?: boolean } = {}): string {
   if (opts.compact && Math.abs(n) >= 1_000_000) {
@@ -59,13 +103,30 @@ export interface Summary {
   essential: number;
   debtPaid: number;
   oneOff: number;
+  birthday: number;
   recurringBurn: number;
   unlabeled: number;
+  /** Everything received in the period, capital returns included. */
+  incomeIn: number;
+  /** Period income that was your own capital coming back, not earnings. */
+  capitalReturned: number;
+  /** Repeating monthly income — derived from cadence, or the manual override. */
+  monthlyIncome: number;
+  /** True when monthlyIncome came from Settings rather than the income ledger. */
+  incomeIsOverride: boolean;
+  /** Money in minus money out, for this period only. */
+  netThisPeriod: number;
   savingsRate: number | null;
+  monthlySurplus: number | null;
+}
+
+export function monthlyIncomeOf(state: FinanceState): { value: number; isOverride: boolean } {
+  if (state.settings.monthlyIncome > 0) return { value: state.settings.monthlyIncome, isOverride: true };
+  return { value: state.income.reduce((s, i) => s + monthlyValue(i), 0), isOverride: false };
 }
 
 export function summarize(state: FinanceState): Summary {
-  const { transactions, settings } = state;
+  const { transactions, income, settings } = state;
   const total = transactions.reduce((s, t) => s + t.amount, 0);
   const days = daysInPeriod(settings.periodStart, settings.periodEnd);
   const sumWhere = (fn: (t: Transaction) => boolean) =>
@@ -73,27 +134,39 @@ export function summarize(state: FinanceState): Summary {
 
   const flexible = sumWhere((t) => CATEGORY_MAP[t.category].flexible);
   const debtPaid = sumWhere((t) => t.category === "debt");
-  const oneOff = sumWhere((t) => t.category === "birthday");
-  // What the week costs once the birthday is stripped out — the number that
-  // actually repeats month to month.
+  const birthday = sumWhere((t) => t.category === "birthday");
+  // Strip anything flagged as non-repeating before projecting forward, so one
+  // unusual week is not multiplied into a monthly figure it never was.
+  const oneOff = sumWhere((t) => t.cadence === "once");
   const recurringBurn = total - oneOff;
+  // Each line projects on its own cadence rather than the whole week being
+  // multiplied up, so monthly installments are not counted four times over.
+  const projectedMonth = transactions.reduce((acc, t) => acc + monthlyCost(t, days), 0);
+
+  const incomeIn = income.reduce((s, i) => s + i.amount, 0);
+  const capitalReturned = income.filter((i) => i.returnOfCapital).reduce((s, i) => s + i.amount, 0);
+  const { value: monthlyIncome, isOverride } = monthlyIncomeOf(state);
 
   return {
     total,
     count: transactions.length,
     days,
     perDay: total / days,
-    projectedMonth: (recurringBurn / days) * 30,
+    projectedMonth,
     flexible,
     essential: total - flexible,
     debtPaid,
     oneOff,
+    birthday,
     recurringBurn,
     unlabeled: sumWhere((t) => t.category === "other"),
-    savingsRate:
-      settings.monthlyIncome > 0
-        ? 1 - (recurringBurn / days) * 30 / settings.monthlyIncome
-        : null,
+    incomeIn,
+    capitalReturned,
+    monthlyIncome,
+    incomeIsOverride: isOverride,
+    netThisPeriod: incomeIn - total,
+    savingsRate: monthlyIncome > 0 ? 1 - projectedMonth / monthlyIncome : null,
+    monthlySurplus: monthlyIncome > 0 ? monthlyIncome - projectedMonth : null,
   };
 }
 
@@ -109,42 +182,74 @@ export function buildInsights(state: FinanceState): Insight[] {
   const cats = categoryTotals(state.transactions);
   const out: Insight[] = [];
   const top = cats[0];
+  const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 
-  if (s.savingsRate !== null) {
-    if (s.savingsRate < 0) {
-      out.push({
-        id: "deficit",
-        tone: "alert",
-        title: "You are spending more than you earn",
-        body: `At this pace your run-rate is ${peso(s.projectedMonth)} a month against income of ${peso(
-          state.settings.monthlyIncome
-        )}. That gap of ${peso(
-          s.projectedMonth - state.settings.monthlyIncome
-        )} has to come from savings or new debt every month. This is the first thing to fix.`,
-      });
-    } else if (s.savingsRate < 0.2) {
-      out.push({
-        id: "thin-margin",
-        tone: "warn",
-        title: `You are saving about ${(s.savingsRate * 100).toFixed(0)}% of income`,
-        body: `A 20% savings rate is the usual floor for building an emergency fund at a reasonable speed. Closing the gap needs roughly ${peso(
-          state.settings.monthlyIncome * 0.2 - (state.settings.monthlyIncome - s.projectedMonth)
-        )} a month trimmed from flexible spending.`,
-      });
-    } else {
-      out.push({
-        id: "healthy-rate",
-        tone: "good",
-        title: `Saving about ${(s.savingsRate * 100).toFixed(0)}% of income`,
-        body: "That is a healthy rate. Point the surplus at your highest-interest debt first, then the emergency fund.",
-      });
-    }
-  } else {
+  if (s.monthlyIncome <= 0) {
     out.push({
       id: "no-income",
       tone: "info",
-      title: "Add your monthly income",
-      body: "Everything else here is measurable, but savings rate and affordability are not. Enter your income in Settings and this page starts telling you whether the burn is sustainable.",
+      title: "Add your income",
+      body: "Everything else here is measurable, but savings rate and affordability are not. Log what comes in on the Income ledger and this page starts telling you whether the burn is sustainable.",
+    });
+  } else if (s.savingsRate !== null && s.savingsRate < 0) {
+    out.push({
+      id: "deficit",
+      tone: "alert",
+      title: "Your repeating costs exceed your repeating income",
+      body: `Run-rate is ${peso(s.projectedMonth)} a month against ${peso(
+        s.monthlyIncome
+      )} of income that actually repeats. The gap of ${peso(
+        s.projectedMonth - s.monthlyIncome
+      )} every month has to come from savings, a lump sum, or new debt. This is the first thing to fix.`,
+    });
+  } else if (s.savingsRate !== null && s.savingsRate < 0.2) {
+    out.push({
+      id: "thin-margin",
+      tone: "warn",
+      title: `You are saving about ${pct(s.savingsRate)} of income`,
+      body: `A 20% savings rate is the usual floor for building an emergency fund at a reasonable speed. Closing the gap means trimming roughly ${peso(
+        s.monthlyIncome * 0.2 - (s.monthlySurplus ?? 0)
+      )} a month from flexible spending.`,
+    });
+  } else if (s.savingsRate !== null) {
+    out.push({
+      id: "healthy-rate",
+      tone: "good",
+      title: `Saving about ${pct(s.savingsRate)} of income`,
+      body: `That is a healthy rate, and it leaves ${peso(
+        s.monthlySurplus ?? 0
+      )} a month free. Point it at your highest-interest debt first, then the emergency fund.`,
+    });
+  }
+
+  if (s.capitalReturned > 0) {
+    out.push({
+      id: "capital",
+      tone: "warn",
+      title: `${peso(s.capitalReturned)} of what came in was not income`,
+      body: `Your paluwagan payout is your own contributions coming back. It spends like income, which is exactly why it is dangerous to plan around — it arrives once and then it is gone. Real repeating income is ${peso(
+        s.monthlyIncome
+      )} a month, and that is the number every decision here should be sized against.`,
+    });
+  }
+
+  if (s.incomeIn > 0) {
+    const positive = s.netThisPeriod >= 0;
+    out.push({
+      id: "net",
+      tone: positive ? "good" : "alert",
+      title: `${positive ? "You ended the period up" : "You ended the period down"} ${peso(
+        Math.abs(s.netThisPeriod)
+      )}`,
+      body: `${peso(s.incomeIn)} came in against ${peso(s.total)} going out.${
+        positive && s.capitalReturned > 0
+          ? ` But ${peso(
+              s.capitalReturned
+            )} of that was the paluwagan — strip it out and the period is ${
+              s.incomeIn - s.capitalReturned - s.total >= 0 ? "still positive by " : "negative by "
+            }${peso(Math.abs(s.incomeIn - s.capitalReturned - s.total))}. That is the honest version.`
+          : ""
+      }`,
     });
   }
 
@@ -152,12 +257,13 @@ export function buildInsights(state: FinanceState): Insight[] {
     id: "burn",
     tone: s.perDay > 15000 ? "alert" : s.perDay > 8000 ? "warn" : "info",
     title: `${peso(s.perDay)} a day across ${s.days} days`,
-    body: `You logged ${peso(s.total)} over ${s.count} transactions. Strip out the one-off birthday spend of ${peso(
+    body: `You logged ${peso(s.total)} over ${s.count} transactions. Strip out the ${peso(
       s.oneOff
-    )} and the repeating cost is ${peso(s.recurringBurn)}, which annualises to about ${peso(
-      s.projectedMonth * 12,
-      { compact: true }
-    )} a year. The birthday will not repeat; the rest will.`,
+    )} flagged as one-off and the repeating cost is ${peso(
+      s.recurringBurn
+    )}. Projecting each line on its own rhythm gives ${peso(
+      s.projectedMonth
+    )} a month. If something is filed under the wrong rhythm, change it in the ledger and every figure here corrects itself.`,
   });
 
   if (s.debtPaid > 0) {
@@ -165,22 +271,20 @@ export function buildInsights(state: FinanceState): Insight[] {
       id: "debt",
       tone: "warn",
       title: `${peso(s.debtPaid)} went to debt in one week`,
-      body: `That is ${((s.debtPaid / s.total) * 100).toFixed(
-        0
-      )}% of everything you spent, spread across ${
+      body: `That is ${pct(s.debtPaid / s.total)} of everything you spent, spread across ${
         new Set(state.transactions.filter((t) => t.category === "debt").map((t) => t.merchant)).size
       } lenders. Servicing several balances at once is the expensive way to carry debt — list every balance and APR under Debts, then pay them down highest-rate first and stop spreading payments evenly.`,
     });
   }
 
-  if (s.oneOff > 0) {
+  if (s.birthday > 0) {
     out.push({
       id: "birthday",
       tone: "info",
-      title: `The birthday cost ${peso(s.oneOff)}`,
-      body: `That single event is ${((s.oneOff / s.total) * 100).toFixed(
-        0
-      )}% of the period. It is not a problem in itself — it is a problem if it was unplanned. Events like this want a sinking fund: set aside a twelfth of the budget each month so the next one is already paid for when it arrives.`,
+      title: `The birthday cost ${peso(s.birthday)}`,
+      body: `That single event is ${pct(
+        s.birthday / s.total
+      )} of the period. It is not a problem in itself — it is a problem if it was unplanned. Events like this want a sinking fund: set aside a twelfth of the budget each month so the next one is already paid for when it arrives.`,
     });
   }
 
@@ -189,7 +293,7 @@ export function buildInsights(state: FinanceState): Insight[] {
       id: "unlabeled",
       tone: "warn",
       title: `${peso(s.unlabeled)} is unaccounted for`,
-      body: `Several ledger lines had amounts but no merchant, including one you marked "?". You cannot cut spending you cannot see. Open Transactions, filter to Unlabeled, and name them while you still remember.`,
+      body: `Several ledger lines had amounts but no merchant, including one you marked "?". You cannot cut spending you cannot see. Open the ledger, filter to Unlabeled, and name them while you still remember.`,
     });
   }
 
@@ -198,9 +302,9 @@ export function buildInsights(state: FinanceState): Insight[] {
       id: "top-flex",
       tone: "info",
       title: `${top.label} is your largest category`,
-      body: `${peso(top.total)} across ${top.count} transactions, ${(top.share * 100).toFixed(
-        0
-      )}% of the period. This is discretionary, so it is where a cut is actually available to you. A 25% trim here frees ${peso(
+      body: `${peso(top.total)} across ${top.count} transactions, ${pct(
+        top.share
+      )} of the period. This is discretionary, so it is where a cut is actually available to you. A 25% trim here frees ${peso(
         top.total * 0.25
       )} a week.`,
     });
@@ -211,7 +315,7 @@ export function buildInsights(state: FinanceState): Insight[] {
     out.push({
       id: "flex-share",
       tone: "warn",
-      title: `${(flexShare * 100).toFixed(0)}% of spending is discretionary`,
+      title: `${pct(flexShare)} of spending is discretionary`,
       body: `${peso(
         s.flexible
       )} of the period went to things you chose rather than things you owed. That is uncomfortable to read but it is good news: it means the fix is within your control and does not require earning more first.`,

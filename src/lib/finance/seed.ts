@@ -1,4 +1,14 @@
-import type { Category, CategoryId, Debt, FinanceState, Goal, Settings, Transaction } from "./types";
+import type {
+  Category,
+  CategoryId,
+  Debt,
+  FinanceState,
+  Goal,
+  Income,
+  Settings,
+  Transaction,
+  TxCadence,
+} from "./types";
 
 export const PERIOD_START = "2026-07-28";
 export const PERIOD_END = "2026-08-03";
@@ -38,7 +48,7 @@ const RAW: Array<[string, number, CategoryId, string?]> = [
   ["Manam", 4017.68, "birthday"],
 
   // — Column 1
-  ["Vaccine", 11600, "health"],
+  ["Vaccine", 11600, "health", "Annual — flagged one-off"],
   ["Adobe", 598.14, "subscriptions"],
   ["CapCut", 3144.56, "subscriptions"],
   ["Gas", 3003.29, "transport"],
@@ -101,6 +111,35 @@ const RAW: Array<[string, number, CategoryId, string?]> = [
   ["BPI credit card payment", 14000, "debt"],
 ];
 
+/**
+ * Spending that will not repeat: the birthday block by definition, the vaccine
+ * because it is annual.
+ */
+const ONCE = new Set(["Vaccine"]);
+
+/**
+ * Lines that are monthly commitments which merely happened to land inside this
+ * week. Without this, projecting the week would bill each of them four times a
+ * month and overstate the run-rate badly — card and loan installments are the
+ * worst offenders because they are large.
+ */
+const MONTHLY = new Set([
+  "BPI credit card payment",
+  "Atome",
+  "Shopee loan",
+  "PNB",
+  "RCBC",
+  "Maribank",
+  "Adobe",
+  "CapCut",
+]);
+
+function cadenceFor(merchant: string, category: CategoryId): TxCadence {
+  if (category === "birthday" || ONCE.has(merchant)) return "once";
+  if (MONTHLY.has(merchant)) return "monthly";
+  return "period";
+}
+
 export const SEED_TRANSACTIONS: Transaction[] = RAW.map(([merchant, amount, category, note], i) => ({
   id: `seed-${String(i + 1).padStart(3, "0")}`,
   date: PERIOD_START,
@@ -109,7 +148,35 @@ export const SEED_TRANSACTIONS: Transaction[] = RAW.map(([merchant, amount, cate
   category,
   note,
   dateEstimated: true,
+  cadence: cadenceFor(merchant, category),
 }));
+
+/**
+ * Money in over the same period. Cadence drives the monthly figure, so a
+ * lump sum does not get multiplied into income that is not there.
+ */
+export const SEED_INCOME: Income[] = [
+  {
+    id: "inc-paluwagan",
+    date: PERIOD_START,
+    amount: 141872,
+    source: "Paluwagan",
+    cadence: "once",
+    returnOfCapital: true,
+    note: "Your own contributions coming back — spendable, but not earnings",
+    dateEstimated: true,
+  },
+  { id: "inc-wfmo", date: PERIOD_START, amount: 76240.1, source: "WFMO pay", cadence: "monthly", dateEstimated: true },
+  {
+    id: "inc-superiorpro",
+    date: PERIOD_START,
+    amount: 29574.29,
+    source: "SuperiorPro pay",
+    cadence: "monthly",
+    dateEstimated: true,
+  },
+  { id: "inc-thrive", date: PERIOD_START, amount: 71031, source: "Thrive pay", cadence: "monthly", dateEstimated: true },
+];
 
 /**
  * Balances are unknown from the ledger and start at 0 — set them in the app.
@@ -156,6 +223,7 @@ export const SEED_SETTINGS: Settings = {
 
 export const SEED_STATE: FinanceState = {
   transactions: SEED_TRANSACTIONS,
+  income: SEED_INCOME,
   debts: SEED_DEBTS,
   goals: SEED_GOALS,
   settings: SEED_SETTINGS,
