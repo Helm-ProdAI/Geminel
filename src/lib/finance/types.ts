@@ -110,11 +110,26 @@ export interface Commitment {
   note?: string;
 }
 
+/**
+ * Goals are funded in order, not in parallel. Phase 1 must finish before
+ * Phase 2 is worth starting — putting money into investments while defaulted
+ * debt compounds is a guaranteed loss.
+ */
+export type Phase = 1 | 2 | 3 | 4;
+
+export const PHASE_LABEL: Record<Phase, string> = {
+  1: "Clear the wreckage",
+  2: "Build the floor",
+  3: "Fund the family",
+  4: "Build wealth",
+};
+
 export interface Goal {
   id: string;
   name: string;
   target: number;
   saved: number;
+  phase: Phase;
   /** ISO date the goal should be met by. */
   targetDate?: string;
   note?: string;

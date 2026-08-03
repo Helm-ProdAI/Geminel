@@ -6,6 +6,7 @@ import type {
   Goal,
   Commitment,
   Income,
+  Phase,
   Settings,
   Transaction,
   TxCadence,
@@ -320,27 +321,77 @@ export const SEED_DEBTS: Debt[] = [
   })),
 ];
 
-export const SEED_GOALS: Goal[] = [
-  {
-    id: "emergency",
-    name: "Emergency fund",
-    target: 150000,
-    saved: 0,
-    note: "Starter target. With income spread across contracts that can end without notice, six months of essentials is the safer number — raise it once your real essential figure settles.",
-  },
-  {
-    id: "debt-free",
-    name: "Clear revolving card debt",
-    target: 23704.99,
-    saved: 0,
-    note: "Set to the RCBC figure. Add your other card balances once you have the statements.",
-  },
-];
+/**
+ * Sequenced, not parallel. Every figure is an estimate to be replaced with a
+ * real quote — the point is the order and the rough scale, which is what
+ * decides where the next peso goes.
+ */
+export const SEED_GOALS: Goal[] = (
+  [
+    [
+      "Settle collections",
+      565851,
+      1,
+      "Half of the ₱1,131,701 face value — a realistic settlement estimate. Every peso here buys back roughly two of debt, which no investment will ever match.",
+    ],
+    [
+      "Clear the cards",
+      180000,
+      1,
+      "BPI ₱120k + UB ₱60k. The other rolling balances are unknown; add them as statements arrive.",
+    ],
+    [
+      "Term life for both of you",
+      60000,
+      2,
+      "Six children and no cover is the single largest unhedged risk here. Buy plain term, not VUL — roughly ₱15–30k a year each for ₱10M of cover.",
+    ],
+    [
+      "Emergency fund — floor",
+      1454754,
+      2,
+      "Six months of living costs. This is the number that actually stops the next emergency becoming the next loan.",
+    ],
+    [
+      "College — eldest",
+      700000,
+      2,
+      "Needed in about two years. The only goal here with a deadline you cannot move.",
+    ],
+    ["Annulment", 350000, 2, "Estimate — get three quotes. Filing, counsel and psychological evaluation."],
+    [
+      "Emergency fund — full",
+      3236688,
+      3,
+      "Your stated 6× income. Worth reaching, but only after the floor above and the eldest's tuition.",
+    ],
+    ["Wedding", 250000, 3, "After the annulment, and sized to what is left rather than what is dreamed."],
+    [
+      "College — the other five",
+      3500000,
+      3,
+      "Ages 12, 8, 7, 2 and 1. Staggered, so it funds over a decade rather than at once.",
+    ],
+    ["House down payment", 2400000, 3, "20% on a ₱12M 4BR. Reachable once debt-free — not before."],
+    ["Passive income portfolio", 5000000, 4, "Index funds and dividend equities. At ~4% this covers a third of current living costs."],
+    ["Retirement", 15000000, 4, "You have no employer pension. This is entirely self-funded."],
+    ["Land investment", 1500000, 4, "Illiquid — only after the portfolio above is running."],
+    ["Business capital", 500000, 4, "The hedge against freelance income. Fund it from surplus, never from debt."],
+  ] as Array<[string, number, Phase, string]>
+).map(([name, target, phase, note], i) => ({
+  id: `goal-${String(i + 1).padStart(2, "0")}`,
+  name,
+  target,
+  saved: 0,
+  phase,
+  note,
+}));
 
 /**
  * Derived from the peso amounts that actually landed this period: SuperiorPro's
  * ₱29,574.29 against $500 gives 59.15, and the WFMO and Thrive receipts match
- * at roughly a half-month each. Confirm against your own remittance rate.
+ * at roughly a half-month each on the same rate. Confirm against your own
+ * post-remittance rate.
  */
 export const DEFAULT_USD_PHP = 59.15;
 
