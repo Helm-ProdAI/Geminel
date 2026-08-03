@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SEED_STATE } from "./seed";
-import type { Commitment, Debt, FinanceState, Goal, Income, Settings, Transaction } from "./types";
+import type { Commitment, Debt, FinanceState, Goal, Income, Paluwagan, Settings, Transaction } from "./types";
 
 const STORAGE_KEY = "geminel.money.v1";
 
@@ -16,6 +16,7 @@ function load(): FinanceState {
       transactions: parsed.transactions ?? SEED_STATE.transactions,
       income: parsed.income ?? SEED_STATE.income,
       commitments: parsed.commitments ?? SEED_STATE.commitments,
+      paluwagan: parsed.paluwagan ?? SEED_STATE.paluwagan,
       debts: parsed.debts ?? SEED_STATE.debts,
       goals: parsed.goals ?? SEED_STATE.goals,
       settings: { ...SEED_STATE.settings, ...parsed.settings },
@@ -90,6 +91,18 @@ export function useFinance() {
     setState((s) => ({ ...s, commitments: s.commitments.filter((c) => c.id !== id) }));
   }, []);
 
+  const addPaluwagan = useCallback((p: Omit<Paluwagan, "id">) => {
+    setState((s) => ({ ...s, paluwagan: [...s.paluwagan, { ...p, id: `pal-${Date.now()}` }] }));
+  }, []);
+
+  const updatePaluwagan = useCallback((id: string, patch: Partial<Paluwagan>) => {
+    setState((s) => ({ ...s, paluwagan: s.paluwagan.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
+  }, []);
+
+  const removePaluwagan = useCallback((id: string) => {
+    setState((s) => ({ ...s, paluwagan: s.paluwagan.filter((p) => p.id !== id) }));
+  }, []);
+
   const updateDebt = useCallback((id: string, patch: Partial<Debt>) => {
     setState((s) => ({ ...s, debts: s.debts.map((d) => (d.id === id ? { ...d, ...patch } : d)) }));
   }, []);
@@ -134,6 +147,9 @@ export function useFinance() {
     addCommitment,
     updateCommitment,
     removeCommitment,
+    addPaluwagan,
+    updatePaluwagan,
+    removePaluwagan,
     addDebt,
     updateDebt,
     removeDebt,

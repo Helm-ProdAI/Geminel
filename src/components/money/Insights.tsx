@@ -15,12 +15,11 @@ export function Insights({ state }: { state: FinanceState }) {
   const insights = buildInsights(state);
   const s = summarize(state);
 
-  const paluwagan = state.commitments.find((c) => /paluwagan/i.test(c.name));
-
   // Short, ordered, and only what is still undone.
   const steps = [
     "Buy life insurance this week. Plain term, not investment-linked. Six kids and none right now.",
-    paluwagan && `Pause the paluwagan. That frees ${peso(paluwagan.amount)} a month straight away.`,
+    s.nextPayout &&
+      `Decide now what the ${peso(s.nextPayout.payout)} paluwagan payout is for, before it arrives.`,
     s.inCollections > 0 && "Write down every old debt: who, how much, their reference number. One page.",
     s.inCollections > 0 && "Email each one. Ask what they will accept to close the account for good. Get it in writing.",
     s.inCollections > 0 && "Pay off the settled ones, biggest discount first. Use a bank account your salary does not go into.",

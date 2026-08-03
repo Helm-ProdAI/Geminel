@@ -7,6 +7,7 @@ import { Goals } from "@/components/money/Goals";
 import { IncomeList } from "@/components/money/IncomeList";
 import { Insights } from "@/components/money/Insights";
 import { Overview } from "@/components/money/Overview";
+import { PaluwaganList } from "@/components/money/PaluwaganList";
 import { Transactions } from "@/components/money/Transactions";
 import { Button, Card, Field, Input, SectionTitle } from "@/components/money/ui";
 import { peso, summarize } from "@/lib/finance/analytics";
@@ -25,7 +26,7 @@ type TabId = (typeof TABS)[number]["id"];
 export default function MoneyPage() {
   const f = useFinance();
   const [tab, setTab] = useState<TabId>("overview");
-  const [ledgerSide, setLedgerSide] = useState<"out" | "in" | "monthly">("monthly");
+  const [ledgerSide, setLedgerSide] = useState<"monthly" | "pal" | "out" | "in">("monthly");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -50,16 +51,22 @@ export default function MoneyPage() {
           {tab === "transactions" && (
             <>
               <div className="mb-4 flex rounded-xl border border-white/10 p-1">
-                {(["monthly", "out", "in"] as const).map((side) => (
+                {(["monthly", "pal", "out", "in"] as const).map((side) => (
                   <button
                     key={side}
                     type="button"
                     onClick={() => setLedgerSide(side)}
-                    className={`flex-1 rounded-lg py-2 text-sm transition ${
+                    className={`flex-1 rounded-lg py-2 text-[13px] transition ${
                       ledgerSide === side ? "bg-gold/12 text-gold" : "text-mist"
                     }`}
                   >
-                    {side === "monthly" ? "Monthly" : side === "out" ? "Spending" : "Income"}
+                    {side === "monthly"
+                      ? "Monthly"
+                      : side === "pal"
+                        ? "Paluwagan"
+                        : side === "out"
+                          ? "Spending"
+                          : "Income"}
                   </button>
                 ))}
               </div>
@@ -67,9 +74,17 @@ export default function MoneyPage() {
                 <Commitments
                   commitments={f.state.commitments}
                   monthlyIncome={summarize(f.state).monthlyIncome}
+                  paluwaganMonthly={summarize(f.state).paluwaganMonthly}
                   onAdd={f.addCommitment}
                   onUpdate={f.updateCommitment}
                   onRemove={f.removeCommitment}
+                />
+              ) : ledgerSide === "pal" ? (
+                <PaluwaganList
+                  paluwagan={f.state.paluwagan}
+                  onAdd={f.addPaluwagan}
+                  onUpdate={f.updatePaluwagan}
+                  onRemove={f.removePaluwagan}
                 />
               ) : ledgerSide === "out" ? (
                 <Transactions

@@ -1,5 +1,14 @@
 import { CATEGORY_MAP, CATEGORIES } from "./seed";
-import type { Cadence, CategoryId, FinanceState, Income, Settings, Transaction, TxCadence } from "./types";
+import type {
+  Cadence,
+  CategoryId,
+  FinanceState,
+  Income,
+  Paluwagan,
+  Settings,
+  Transaction,
+  TxCadence,
+} from "./types";
 
 /** How many times a cadence lands in a month. `once` never repeats. */
 const PER_MONTH: Record<Cadence, number> = {
@@ -119,6 +128,12 @@ export interface Summary {
   fixedMonthly: number;
   /** Monthly debt servicing on accounts still rolling. */
   debtMonthly: number;
+  /** Paluwagan contributions per month — saving, not spending. */
+  paluwaganMonthly: number;
+  /** Payouts still to be received. */
+  paluwaganDue: number;
+  /** The next payout still outstanding, or null. */
+  nextPayout: Paluwagan | null;
   /** fixedMonthly + debtMonthly. */
   committedMonthly: number;
   /** Face value of every defaulted account, both owners. */
@@ -164,7 +179,16 @@ export function summarize(state: FinanceState): Summary {
   // each transaction on its own cadence.
   const fixedMonthly = state.commitments.filter((c) => c.kind === "fixed").reduce((a, c) => a + c.amount, 0);
   const debtMonthly = state.commitments.filter((c) => c.kind === "debt").reduce((a, c) => a + c.amount, 0);
-  const committedMonthly = fixedMonthly + debtMonthly;
+  // Biweekly slots bill twice a month.
+  const paluwaganMonthly = state.paluwagan
+    .filter((p) => !p.received)
+    .reduce((a, p) => a + p.contribution * (p.cadence === "biweekly" ? 2 : 1), 0);
+  const paluwaganDue = state.paluwagan.filter((p) => !p.received).reduce((a, p) => a + p.payout, 0);
+  const nextPayout =
+    state.paluwagan
+      .filter((p) => !p.received)
+      .sort((a, b) => a.payoutDate.localeCompare(b.payoutDate))[0] ?? null;
+  const committedMonthly = fixedMonthly + debtMonthly + paluwaganMonthly;
   const projectedMonth =
     state.commitments.length > 0
       ? committedMonthly
@@ -206,6 +230,9 @@ export function summarize(state: FinanceState): Summary {
     unlabeled: sumWhere((t) => t.category === "other"),
     fixedMonthly,
     debtMonthly,
+    paluwaganMonthly,
+    paluwaganDue,
+    nextPayout,
     committedMonthly,
     inCollections,
     inCollectionsMine,
@@ -261,13 +288,17 @@ export function buildInsights(state: FinanceState): Insight[] {
     });
   }
 
-  const paluwagan = state.commitments.find((c) => /paluwagan/i.test(c.name));
-  if (paluwagan) {
+  if (s.paluwaganMonthly > 0) {
+    const when = s.nextPayout
+      ? new Date(s.nextPayout.payoutDate).toLocaleDateString("en-PH", { month: "long", year: "numeric" })
+      : "";
     out.push({
       id: "paluwagan",
       tone: "good",
-      title: `Pausing the paluwagan frees ${peso(paluwagan.amount)} a month`,
-      body: "It is savings, not a loan. It is also the fastest money you can find. Use it to clear the old debt first, then start it again.",
+      title: `${peso(s.paluwaganDue)} of paluwagan is coming back to you`,
+      body: `You put in ${peso(s.paluwaganMonthly)} a month${
+        s.nextPayout ? `, and the next ${peso(s.nextPayout.payout)} lands in ${when}` : ""
+      }. This is savings, not a bill. Decide what each payout is for before it arrives.`,
     });
   }
 

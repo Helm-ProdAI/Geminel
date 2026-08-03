@@ -108,6 +108,30 @@ export interface Commitment {
   kind: "fixed" | "debt";
   owner: Owner;
   note?: string;
+  /** Installment loans only: payments already made, and the total in the term. */
+  paymentsMade?: number;
+  paymentsTotal?: number;
+}
+
+/**
+ * A paluwagan slot. Money goes out every cycle and comes back as one lump sum
+ * on a known date, so it is neither an expense nor income — it is forced saving
+ * with a maturity. Tracking the payout date is the point: those dates are the
+ * only large sums this household has coming.
+ */
+export interface Paluwagan {
+  id: string;
+  name: string;
+  /** Contribution per cycle, in PHP. */
+  contribution: number;
+  cadence: "monthly" | "biweekly";
+  /** Lump sum received on payoutDate. */
+  payout: number;
+  /** ISO date (yyyy-mm-dd). */
+  payoutDate: string;
+  /** Set once the payout has actually landed. */
+  received?: boolean;
+  note?: string;
 }
 
 /**
@@ -153,6 +177,7 @@ export interface FinanceState {
   transactions: Transaction[];
   income: Income[];
   commitments: Commitment[];
+  paluwagan: Paluwagan[];
   debts: Debt[];
   goals: Goal[];
   settings: Settings;

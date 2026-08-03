@@ -8,14 +8,16 @@ import { Bar, Button, Card, Field, Input, SectionTitle, Select } from "./ui";
 interface Props {
   commitments: Commitment[];
   monthlyIncome: number;
+  /** Shown alongside, because it is committed cash but not an expense. */
+  paluwaganMonthly: number;
   onAdd: (c: Omit<Commitment, "id">) => void;
   onUpdate: (id: string, patch: Partial<Commitment>) => void;
   onRemove: (id: string) => void;
 }
 
-const KIND_LABEL = { fixed: "Living costs", debt: "Debt servicing" } as const;
+const KIND_LABEL = { fixed: "Non-negotiables", debt: "Loans" } as const;
 
-export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRemove }: Props) {
+export function Commitments({ commitments, monthlyIncome, paluwaganMonthly, onAdd, onUpdate, onRemove }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ name: "", amount: "", kind: "fixed" as Commitment["kind"] });
@@ -23,7 +25,7 @@ export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRem
   const fixed = commitments.filter((c) => c.kind === "fixed");
   const debt = commitments.filter((c) => c.kind === "debt");
   const sum = (list: Commitment[]) => list.reduce((s, c) => s + c.amount, 0);
-  const total = sum(commitments);
+  const total = sum(commitments) + paluwaganMonthly;
   const left = monthlyIncome - total;
 
   return (
@@ -31,9 +33,10 @@ export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRem
       <Card className="border-gold/25 bg-gradient-to-br from-ink/90 to-midnight/80">
         <span className="text-[11px] uppercase tracking-wider text-champagne">Committed every month</span>
         <div className="mt-1 font-serif text-3xl text-gold">{peso(total)}</div>
-        <div className="mt-2 flex gap-5 text-xs text-mist">
-          <span>Living {peso(sum(fixed), { compact: true })}</span>
-          <span>Debt {peso(sum(debt), { compact: true })}</span>
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-mist">
+          <span>Non-negotiables {peso(sum(fixed), { compact: true })}</span>
+          <span>Loans {peso(sum(debt), { compact: true })}</span>
+          {paluwaganMonthly > 0 ? <span>Paluwagan {peso(paluwaganMonthly, { compact: true })}</span> : null}
         </div>
         {monthlyIncome > 0 ? (
           <>
@@ -44,8 +47,11 @@ export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRem
               />
             </div>
             <p className="mt-2 text-xs text-mist">
-              {((total / monthlyIncome) * 100).toFixed(0)}% of household income is spoken for before anything
-              discretionary. {left >= 0 ? `${peso(left)} left over.` : `${peso(Math.abs(left))} short.`}
+              {((total / monthlyIncome) * 100).toFixed(0)}% of household income is committed.{" "}
+              {left >= 0 ? `${peso(left)} left over.` : `${peso(Math.abs(left))} short.`}
+              {paluwaganMonthly > 0
+                ? ` The paluwagan share comes back to you — see the Paluwagan tab.`
+                : ""}
             </p>
           </>
         ) : null}
@@ -73,7 +79,14 @@ export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRem
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-cloud">{c.name}</span>
-                        {c.note ? <span className="block truncate text-xs text-mist">{c.note}</span> : null}
+                        {c.paymentsTotal ? (
+                          <span className="block truncate text-xs text-mist">
+                            {c.paymentsTotal - (c.paymentsMade ?? 0)} of {c.paymentsTotal} payments left ·{" "}
+                            {peso((c.paymentsTotal - (c.paymentsMade ?? 0)) * c.amount, { compact: true })} to go
+                          </span>
+                        ) : c.note ? (
+                          <span className="block truncate text-xs text-mist">{c.note}</span>
+                        ) : null}
                       </span>
                       <span className="shrink-0 text-sm tabular-nums text-cloud">{peso(c.amount)}</span>
                     </button>
@@ -96,8 +109,8 @@ export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRem
                             value={c.kind}
                             onChange={(e) => onUpdate(c.id, { kind: e.target.value as Commitment["kind"] })}
                           >
-                            <option value="fixed">Living cost</option>
-                            <option value="debt">Debt servicing</option>
+                            <option value="fixed">Non-negotiable</option>
+                            <option value="debt">Loan</option>
                           </Select>
                         </Field>
                         <Field label="Note">
@@ -154,8 +167,8 @@ export function Commitments({ commitments, monthlyIncome, onAdd, onUpdate, onRem
                 value={draft.kind}
                 onChange={(e) => setDraft({ ...draft, kind: e.target.value as Commitment["kind"] })}
               >
-                <option value="fixed">Living cost</option>
-                <option value="debt">Debt servicing</option>
+                <option value="fixed">Non-negotiable</option>
+                <option value="debt">Loan</option>
               </Select>
             </Field>
           </div>

@@ -6,6 +6,8 @@ import type {
   Goal,
   Commitment,
   Income,
+  Owner,
+  Paluwagan,
   Phase,
   Settings,
   Transaction,
@@ -168,18 +170,6 @@ export const SEED_INCOME: Income[] = [
   { id: "inc-superiorpro", date: PERIOD_START, amount: 500, currency: "USD", owner: "me", source: "SuperiorPro", cadence: "monthly" },
   { id: "inc-h-wfmo", date: PERIOD_START, amount: 1280, currency: "USD", owner: "partner", source: "WFMO", cadence: "monthly" },
   { id: "inc-h-mla", date: PERIOD_START, amount: 640, currency: "USD", owner: "partner", source: "My Legal Academy", cadence: "monthly" },
-  {
-    id: "inc-paluwagan",
-    date: PERIOD_START,
-    amount: 141872,
-    currency: "PHP",
-    owner: "me",
-    source: "Paluwagan",
-    cadence: "once",
-    returnOfCapital: true,
-    note: "Your own contributions coming back — spendable, but not earnings",
-    dateEstimated: true,
-  },
 ];
 
 /**
@@ -188,63 +178,99 @@ export const SEED_INCOME: Income[] = [
  * Together they are the run-rate, which is real evidence rather than a
  * projection from one week of receipts.
  */
-export const SEED_COMMITMENTS: Commitment[] = (
-  [
-    ["Rent", 35000, "fixed"],
-    ["Car", 26362, "fixed"],
-    ["Water", 1000, "fixed"],
-    ["Electricity", 14000, "fixed"],
-    ["Gas", 7000, "fixed"],
-    ["Grocery", 30000, "fixed"],
-    ["School service", 5500, "fixed"],
-    ["Globe WiFi", 1699, "fixed"],
-    ["Converge WiFi", 1898, "fixed"],
-    ["Nanny", 10000, "fixed"],
-    ["Child support", 16000, "fixed"],
-    ["HMO", 8000, "fixed"],
-    ["Insurance", 10000, "fixed"],
-    ["PhilHealth", 1000, "fixed", "Written under a struck-out figure — confirm"],
-    ["Eat out", 20000, "fixed"],
-    ["Shopping", 10000, "fixed"],
-    ["Skincare", 5000, "fixed"],
-    ["Vitamins", 5000, "fixed"],
-    ["Deus (manpower)", 20000, "fixed"],
-    ["Vaccine", 10000, "fixed"],
-    ["Subscriptions", 5000, "fixed"],
+export const SEED_COMMITMENTS: Commitment[] = [
+  ...(
+    [
+      ["Rent", 35000],
+      ["Car", 26342],
+      ["Water", 800],
+      ["Electricity", 12000],
+      ["Gas", 7000],
+      ["Grocery", 25000],
+      ["School service", 5500],
+      ["Globe WiFi", 1699],
+      ["Converge WiFi", 1898],
+      ["Church", 8000],
+      ["Child support", 16000],
+      ["HMO", 8000],
+      ["Insurance", 10000],
+      ["PhilHealth", 1000],
+      ["Wants", 10000],
+      ["Eat out", 10000],
+      ["Nanny", 10000],
+      ["Subscriptions", 10000],
+      ["Deus (manpower)", 20000],
+    ] as Array<[string, number]>
+  ).map(([name, amount], i) => ({
+    id: `comf-${String(i + 1).padStart(2, "0")}`,
+    name,
+    amount,
+    kind: "fixed" as const,
+    owner: "me" as const,
+  })),
 
-    ["Maya — Ella", 22000, "debt"],
-    ["Maya — Gelo", 7600, "debt"],
-    ["Shopee Pay", 22500, "debt"],
-    ["Tonik — Gelo", 3116.93, "debt"],
-    ["Atome — Gelo", 5603.89, "debt", "Payment 5 of 9"],
-    ["BPI card", 20000, "debt", "₱120k outstanding"],
-    ["UB card", 20000, "debt", "₱60k outstanding"],
-    ["Atome — Ella", 28960, "debt"],
-    ["Gelo", 17500, "debt"],
-    ["MAC 3/6", 14145, "debt", "4 payments to go"],
-    ["Paluwagan", 126100, "debt", "Contribution, not a lender — this one builds an asset"],
-  ] as Array<[string, number, "fixed" | "debt", string?]>
-).map(([name, amount, kind, note], i) => ({
-  id: `com-${String(i + 1).padStart(2, "0")}`,
+  // Installment loans, each with a known end. Unlike the cards these cannot be
+  // cleared early by simply not spending — they run their term out.
+  ...(
+    [
+      ["Tonik", 3110.93, 13, 24],
+      ["Atome", 5603.89, 5, 9],
+      ["MAC", 16165, 2, 6],
+    ] as Array<[string, number, number, number]>
+  ).map(([name, amount, paymentsMade, paymentsTotal], i) => ({
+    id: `comd-${i + 1}`,
+    name,
+    amount,
+    kind: "debt" as const,
+    owner: "me" as const,
+    paymentsMade,
+    paymentsTotal,
+  })),
+];
+
+/**
+ * Paluwagan slots. The contribution leaves every cycle; the payout lands once,
+ * on a date that is already known. Those dates are the only large sums this
+ * household has coming, so they are worth planning around rather than
+ * discovering.
+ */
+export const SEED_PALUWAGAN: Paluwagan[] = (
+  [
+    // Already collected during the ledger period — kept for the record.
+    ["Earlier slot", 0, "monthly", 141872, "2026-08-01", "Received 28 Jul – 3 Aug; contribution not recorded"],
+    ["B7 40K", 4000, "biweekly", 40000, "2026-09-15"],
+    ["B11 50K", 12500, "monthly", 50000, "2026-10-01"],
+    ["B12 50K", 12500, "monthly", 50000, "2026-11-01"],
+    ["B8 40K", 8000, "biweekly", 40000, "2026-11-01", "Written as Oct–Nov — confirm the month"],
+    ["B 150K", 15000, "monthly", 150000, "2027-02-01"],
+    ["B19 100K", 20000, "monthly", 100000, "2027-03-01"],
+    ["B13 50K", 12500, "monthly", 50000, "2027-04-01"],
+    ["B10 100K", 20000, "monthly", 100000, "2027-05-01"],
+  ] as Array<[string, number, "monthly" | "biweekly", number, string, string?]>
+).map(([name, contribution, cadence, payout, payoutDate, note], i) => ({
+  id: `pal-${i + 1}`,
   name,
-  amount,
-  kind,
-  owner: "me" as const,
+  contribution,
+  cadence,
+  payout,
+  payoutDate,
   note,
+  received: contribution === 0,
 }));
 
 /**
- * Accounts still being serviced monthly. Balances come from the notes beside
- * each line; where none was written the balance stays 0 until a statement
- * fills it in.
+ * Credit lines carrying a balance. The plan is to clear each in full and stop
+ * using them, so these are one-time payoffs rather than a monthly commitment —
+ * which is why none of them appear in the run-rate.
  */
-const ROLLING: Array<[string, number, number]> = [
-  ["BPI card", 120000, 20000],
-  ["UB card", 60000, 20000],
-  ["Atome — Ella", 0, 28960],
-  ["Maya — Ella", 0, 22000],
-  ["Shopee Pay", 0, 22500],
-  ["MAC 3/6", 0, 14145],
+const CARDS: Array<[string, number, Owner]> = [
+  ["BPI", 132000, "me"],
+  ["UB", 62000, "me"],
+  ["Atome — Ella", 28900, "me"],
+  ["Maya — Ella", 21900, "me"],
+  ["SPay — Gelo", 22500, "partner"],
+  ["Atome — Gelo", 17500, "partner"],
+  ["Maya — Gelo", 7600, "partner"],
 ];
 
 /**
@@ -294,13 +320,14 @@ export const SEED_DEBTS: Debt[] = [
     owner: "me",
     note: "₱738,136 over 28 months; ₱633,137.46 to settle early",
   },
-  ...ROLLING.map(([name, balance, paidThisPeriod], i) => ({
-    id: `roll-${i + 1}`,
+  ...CARDS.map(([name, balance, owner], i) => ({
+    id: `card-${i + 1}`,
     name,
     balance,
-    paidThisPeriod,
+    paidThisPeriod: 0,
     status: "rolling" as const,
-    owner: "me" as const,
+    owner,
+    note: "Clear in full, then stop using it",
   })),
   ...COLLECTIONS.map(([name, balance, note], i) => ({
     id: `col-${i + 1}`,
@@ -336,9 +363,9 @@ export const SEED_GOALS: Goal[] = (
     ],
     [
       "Clear the cards",
-      180000,
+      292400,
       1,
-      "BPI ₱120k + UB ₱60k. The other rolling balances are unknown; add them as statements arrive.",
+      "All seven balances, paid in full and then left alone. About 1.6 months of your surplus.",
     ],
     [
       "Term life for both of you",
@@ -407,6 +434,7 @@ export const SEED_STATE: FinanceState = {
   transactions: SEED_TRANSACTIONS,
   income: SEED_INCOME,
   commitments: SEED_COMMITMENTS,
+  paluwagan: SEED_PALUWAGAN,
   debts: SEED_DEBTS,
   goals: SEED_GOALS,
   settings: SEED_SETTINGS,

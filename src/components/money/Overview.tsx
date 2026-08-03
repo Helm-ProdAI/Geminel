@@ -52,7 +52,10 @@ export function Overview({ state }: { state: FinanceState }) {
           </div>
           <p className="mt-2.5 border-t border-white/8 pt-2.5 text-xs text-mist">
             Per month. Your own sources are {peso(s.monthlyIncomeMine)} of the {peso(s.monthlyIncome)} household
-            total{s.capitalReturned > 0 ? `, and the ${peso(s.capitalReturned)} paluwagan sits outside both` : ""}.
+            total.
+            {s.paluwaganDue > 0
+              ? ` ${peso(s.paluwaganDue)} of paluwagan is still due back to you on top.`
+              : ""}
           </p>
         </Card>
       ) : null}
