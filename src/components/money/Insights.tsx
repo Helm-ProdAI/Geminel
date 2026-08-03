@@ -15,36 +15,22 @@ export function Insights({ state }: { state: FinanceState }) {
   const insights = buildInsights(state);
   const s = summarize(state);
 
-  // The plan reflects what is still missing, so finished steps drop off.
+  const paluwagan = state.commitments.find((c) => /paluwagan/i.test(c.name));
+
+  // Short, ordered, and only what is still undone.
   const steps = [
-    s.inCollections > 0 &&
-      `List every collections account with the agency name, reference number and last contact date. ${peso(
-        s.inCollections
-      )} across ${s.collectionsCount} accounts cannot be negotiated until it is one document.`,
-    s.inCollections > 0 &&
-      "Ask each agency for a written statement of account before paying anything. Verbal balances on defaulted debt are frequently wrong and always unenforceable.",
-    s.inCollections > 0 &&
-      "Open settlement talks on the largest accounts first, offering a lump sum against a written release. Never pay from an account you also receive income into.",
-    s.monthlySurplus !== null &&
-      s.monthlySurplus > 0 &&
-      s.monthlySurplus < s.monthlyIncome * 0.1 &&
-      `Your slack is only ${peso(
-        s.monthlySurplus
-      )} a month. Find the cuts inside the ${peso(s.fixedMonthly)} of living costs before promising anyone a payment plan.`,
-    state.debts.some((d) => d.status === "rolling" && d.apr === undefined) &&
-      "Get the APR on every rolling account. Some of what you are servicing is certainly more expensive than the rest, and right now you cannot tell which.",
-    s.unlabeled > 0 &&
-      `Name the ${peso(s.unlabeled)} of unlabeled spending. Small next to the collections figure, but it is the part you control this week.`,
-    s.capitalReturned > 0 &&
-      `Do not spend the ${peso(
-        s.capitalReturned
-      )} paluwagan on living costs. Against this debt position it is settlement money, and it is the only lump sum you have.`,
-    "Keep the dollar rate current in the Income tab. You earn in USD and spend in PHP, so that one number moves everything.",
+    "Buy life insurance this week. Plain term, not investment-linked. Six kids and none right now.",
+    paluwagan && `Pause the paluwagan. That frees ${peso(paluwagan.amount)} a month straight away.`,
+    s.inCollections > 0 && "Write down every old debt: who, how much, their reference number. One page.",
+    s.inCollections > 0 && "Email each one. Ask what they will accept to close the account for good. Get it in writing.",
+    s.inCollections > 0 && "Pay off the settled ones, biggest discount first. Use a bank account your salary does not go into.",
+    "Ask a lawyer to read the condo contract before March 2027. You may get half your payments back.",
+    "Once the debt is gone, save first and spend after. Move the money the day you get paid.",
   ].filter((x): x is string => typeof x === "string");
 
   return (
     <div>
-      <SectionTitle hint={`${insights.length} findings`}>What the numbers say</SectionTitle>
+      <SectionTitle hint={`${insights.length}`}>Where you stand</SectionTitle>
       <div className="flex flex-col gap-3">
         {insights.map((i) => {
           const tone = TONE[i.tone];
@@ -61,7 +47,7 @@ export function Insights({ state }: { state: FinanceState }) {
         })}
       </div>
 
-      <SectionTitle>The plan</SectionTitle>
+      <SectionTitle hint="In order">Do these</SectionTitle>
       <Card>
         <ol className="flex flex-col gap-3 text-sm text-mist">
           {steps.map((step, i) => (

@@ -231,64 +231,21 @@ export interface Insight {
 
 export function buildInsights(state: FinanceState): Insight[] {
   const s = summarize(state);
-  const cats = categoryTotals(state.transactions);
   const out: Insight[] = [];
-  const top = cats[0];
   const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 
-  if (s.monthlyIncome <= 0) {
-    out.push({
-      id: "no-income",
-      tone: "info",
-      title: "Add your income",
-      body: "Everything else here is measurable, but savings rate and affordability are not. Log what comes in on the Income ledger and this page starts telling you whether the burn is sustainable.",
-    });
-  } else if (s.savingsRate !== null && s.savingsRate < 0) {
-    out.push({
-      id: "deficit",
-      tone: "alert",
-      title: "Your repeating costs exceed your repeating income",
-      body: `Run-rate is ${peso(s.projectedMonth)} a month against ${peso(
-        s.monthlyIncome
-      )} of income that actually repeats. The gap of ${peso(
-        s.projectedMonth - s.monthlyIncome
-      )} every month has to come from savings, a lump sum, or new debt. This is the first thing to fix.`,
-    });
-  } else if (s.savingsRate !== null && s.savingsRate < 0.2) {
-    out.push({
-      id: "thin-margin",
-      tone: "warn",
-      title: `You are saving about ${pct(s.savingsRate)} of income`,
-      body: `A 20% savings rate is the usual floor for building an emergency fund at a reasonable speed. Closing the gap means trimming roughly ${peso(
-        s.monthlyIncome * 0.2 - (s.monthlySurplus ?? 0)
-      )} a month from flexible spending.`,
-    });
-  } else if (s.savingsRate !== null) {
-    out.push({
-      id: "healthy-rate",
-      tone: "good",
-      title: `Saving about ${pct(s.savingsRate)} of income`,
-      body: `That is a healthy rate, and it leaves ${peso(
-        s.monthlySurplus ?? 0
-      )} a month free. Point it at your highest-interest debt first, then the emergency fund.`,
-    });
-  }
-
   if (s.inCollections > 0) {
-    const monthsOfSurplus = s.monthlySurplus && s.monthlySurplus > 0 ? s.inCollections / s.monthlySurplus : null;
-    out.unshift({
+    out.push({
       id: "collections",
       tone: "alert",
-      title: `${peso(s.inCollections)} across ${s.collectionsCount} accounts is in collections`,
-      body: `${peso(
-        s.inCollectionsMine
-      )} of it is in your name. Nothing here is being serviced, so it is not in the run-rate — but it is the largest single fact about your finances and it does not go away on its own.${
-        monthsOfSurplus !== null && monthsOfSurplus > 24
-          ? ` At your current surplus it would take ${Math.round(
-              monthsOfSurplus
-            )} months to clear at face value, which is why settlement rather than repayment is the realistic path.`
-          : ""
-      } Defaulted consumer debt in the Philippines commonly settles well under face value, and agencies deal best with whoever engages first and in writing.`,
+      title: `You owe ${peso(s.inCollections)} that you stopped paying`,
+      body: `${s.collectionsCount} accounts. Nothing is being paid on any of them, so they are not in your monthly budget — but they are the biggest problem you have.`,
+    });
+    out.push({
+      id: "settle",
+      tone: "info",
+      title: "You can usually pay less than the full amount",
+      body: "Old unpaid debt is often settled for a fraction of what the letters say. Ask each one in writing what they will accept to close the account for good. Never pay before you have that in writing.",
     });
   }
 
@@ -296,78 +253,61 @@ export function buildInsights(state: FinanceState): Insight[] {
     const share = s.committedMonthly / s.monthlyIncome;
     out.push({
       id: "committed",
-      tone: share > 0.9 ? "alert" : share > 0.75 ? "warn" : "info",
-      title: `${pct(share)} of income is committed before you spend anything`,
-      body: `${peso(s.fixedMonthly)} of living costs and ${peso(
-        s.debtMonthly
-      )} of debt servicing come to ${peso(s.committedMonthly)} a month against ${peso(
-        s.monthlyIncome
-      )} coming in. That leaves ${peso(
-        s.monthlyIncome - s.committedMonthly
-      )} of genuine slack — one missed contract or one bad exchange-rate month erases it.`,
+      tone: share > 0.9 ? "alert" : "warn",
+      title: `${pct(share)} of your money is spent before the month starts`,
+      body: `${peso(s.monthlyIncome)} comes in. ${peso(
+        s.committedMonthly
+      )} is already promised. You have ${peso(s.monthlyIncome - s.committedMonthly)} left to play with.`,
+    });
+  }
+
+  const paluwagan = state.commitments.find((c) => /paluwagan/i.test(c.name));
+  if (paluwagan) {
+    out.push({
+      id: "paluwagan",
+      tone: "good",
+      title: `Pausing the paluwagan frees ${peso(paluwagan.amount)} a month`,
+      body: "It is savings, not a loan. It is also the fastest money you can find. Use it to clear the old debt first, then start it again.",
+    });
+  }
+
+  if (s.debtMonthly > 0 && s.monthlyIncome > 0) {
+    out.push({
+      id: "debt-service",
+      tone: "warn",
+      title: `${peso(s.debtMonthly)} a month goes to debt`,
+      body: `That is ${pct(
+        s.debtMonthly / s.monthlyIncome
+      )} of what you earn, and it is barely shrinking what you owe. Ask each lender for the interest rate — some are costing you far more than others.`,
+    });
+  }
+
+  if (s.monthlyIncome > 0 && s.fixedMonthly > 0) {
+    out.push({
+      id: "after-debt",
+      tone: "good",
+      title: `Debt-free, you would have ${peso(s.monthlyIncome - s.fixedMonthly)} spare every month`,
+      body: "That is the prize. Everything you want — savings, school, a house, retiring — comes out of that number. Nothing else gets you there faster than clearing the debt.",
     });
   }
 
   if (s.monthlyIncomeMine > 0 && s.monthlyIncomeMine < s.monthlyIncome) {
-    const partner = s.monthlyIncome - s.monthlyIncomeMine;
-    const soloSurplus = s.monthlyIncomeMine - s.projectedMonth;
     out.push({
       id: "single-income",
-      tone: soloSurplus >= 0 ? "info" : "warn",
-      title: `${peso(partner)} a month of this is your husband's`,
-      body: `Your own sources come to ${peso(s.monthlyIncomeMine)}. Against a ${peso(
-        s.projectedMonth
-      )} run-rate that alone would leave ${
-        soloSurplus >= 0 ? `${peso(soloSurplus)} spare` : `a ${peso(Math.abs(soloSurplus))} shortfall`
-      }. Worth knowing which side of the line you are on before you commit to anything long-term.`,
-    });
-  }
-
-  if (s.capitalReturned > 0) {
-    out.push({
-      id: "capital",
-      tone: "warn",
-      title: `The ${peso(s.capitalReturned)} paluwagan is not income`,
-      body: `It is your own contributions coming back. It spends like income, which is exactly why it is dangerous to plan around — it arrives once and then it is gone. Give it a job now: a debt it clears, or a fund it starts. Otherwise it quietly becomes ordinary spending.`,
-    });
-  }
-
-  out.push({
-    id: "burn",
-    tone: s.perDay > 15000 ? "alert" : s.perDay > 8000 ? "warn" : "info",
-    title: `${peso(s.perDay)} a day across ${s.days} days`,
-    body: `You logged ${peso(s.total)} over ${s.count} transactions. Strip out the ${peso(
-      s.oneOff
-    )} flagged as one-off and the repeating cost is ${peso(
-      s.recurringBurn
-    )}. Projecting each line on its own rhythm gives ${peso(
-      s.projectedMonth
-    )} a month. If something is filed under the wrong rhythm, change it in the ledger and every figure here corrects itself.`,
-  });
-
-  if (s.debtMonthly > 0) {
-    out.push({
-      id: "debt-service",
-      tone: "warn",
-      title: `${peso(s.debtMonthly)} a month goes to servicing debt`,
-      body: `That is ${pct(
-        s.debtMonthly / s.monthlyIncome
-      )} of household income, spread across ${
-        state.commitments.filter((c) => c.kind === "debt").length
-      } lines — and it buys down almost none of the ${peso(
-        s.inCollections
-      )} already in collections. Money is going out fast without the position improving. Get APRs on every rolling account, because some of these are almost certainly costing more than others.`,
-    });
-  }
-
-  if (s.birthday > 0) {
-    out.push({
-      id: "birthday",
       tone: "info",
-      title: `The birthday cost ${peso(s.birthday)}`,
-      body: `That single event is ${pct(
-        s.birthday / s.total
-      )} of the period. It is not a problem in itself — it is a problem if it was unplanned. Events like this want a sinking fund: set aside a twelfth of the budget each month so the next one is already paid for when it arrives.`,
+      title: `${peso(s.monthlyIncome - s.monthlyIncomeMine)} of your income is your husband's`,
+      body: `On your own you bring in ${peso(
+        s.monthlyIncomeMine
+      )}. Worth knowing, because your bills are ${peso(s.committedMonthly)}.`,
+    });
+  }
+
+  if (state.income.some((i) => i.currency === "USD")) {
+    out.push({
+      id: "fx",
+      tone: "info",
+      title: "You earn dollars and spend pesos",
+      body: `Right now ₱${state.settings.usdPhpRate} to the dollar. If the peso gets stronger, your income drops without you doing anything. Keep an eye on it.`,
     });
   }
 
@@ -375,72 +315,8 @@ export function buildInsights(state: FinanceState): Insight[] {
     out.push({
       id: "unlabeled",
       tone: "warn",
-      title: `${peso(s.unlabeled)} is unaccounted for`,
-      body: `Several ledger lines had amounts but no merchant, including one you marked "?". You cannot cut spending you cannot see. Open the ledger, filter to Unlabeled, and name them while you still remember.`,
-    });
-  }
-
-  if (top && top.flexible) {
-    out.push({
-      id: "top-flex",
-      tone: "info",
-      title: `${top.label} is your largest category`,
-      body: `${peso(top.total)} across ${top.count} transactions, ${pct(
-        top.share
-      )} of the period. This is discretionary, so it is where a cut is actually available to you. A 25% trim here frees ${peso(
-        top.total * 0.25
-      )} a week.`,
-    });
-  }
-
-  const flexShare = s.total > 0 ? s.flexible / s.total : 0;
-  if (flexShare > 0.5) {
-    out.push({
-      id: "flex-share",
-      tone: "warn",
-      title: `${pct(flexShare)} of spending is discretionary`,
-      body: `${peso(
-        s.flexible
-      )} of the period went to things you chose rather than things you owed. That is uncomfortable to read but it is good news: it means the fix is within your control and does not require earning more first.`,
-    });
-  }
-
-  const earners = state.income.filter((i) => !i.returnOfCapital);
-  if (earners.length > 1) {
-    const biggest = earners.reduce((a, b) =>
-      monthlyValue(b, state.settings) > monthlyValue(a, state.settings) ? b : a
-    );
-    const share = monthlyValue(biggest, state.settings) / s.monthlyIncome;
-    if (share > 0.25) {
-      out.push({
-        id: "concentration",
-        tone: "info",
-        title: `${biggest.source} is ${pct(share)} of household income`,
-        body: `Across ${earners.length} contracts that is your largest single dependency. Contract income has no notice period — losing this one costs ${peso(
-          monthlyValue(biggest, state.settings)
-        )} a month overnight. That is the case for an emergency fund sized in months, not pesos.`,
-      });
-    }
-  }
-
-  if (state.income.some((i) => i.currency === "USD")) {
-    out.push({
-      id: "fx",
-      tone: "info",
-      title: "You earn in dollars and spend in pesos",
-      body: `Every figure here converts at ₱${state.settings.usdPhpRate} to the dollar. A five-peso move in that rate swings household income by about ${peso(
-        state.income.filter((i) => i.currency === "USD" && i.cadence === "monthly").reduce((a, i) => a + i.amount, 0) * 5
-      )} a month — up or down, without you doing anything. Keep the rate current, and treat a strong-peso month as the stress test.`,
-    });
-  }
-
-  const cash = cats.find((c) => c.id === "cash");
-  if (cash && cash.total > 0) {
-    out.push({
-      id: "cash",
-      tone: "info",
-      title: `${peso(cash.total)} withdrawn as cash`,
-      body: "Cash leaves no trail, so it quietly becomes the biggest blind spot in any tracker. Either log what it goes to on the day, or move those purchases to card so they categorise themselves.",
+      title: `${peso(s.unlabeled)} of spending has no name on it`,
+      body: "You cannot cut what you cannot see. Open the Spending list and name them while you still remember.",
     });
   }
 
