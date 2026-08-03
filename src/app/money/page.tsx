@@ -8,6 +8,7 @@ import { IncomeList } from "@/components/money/IncomeList";
 import { Insights } from "@/components/money/Insights";
 import { Overview } from "@/components/money/Overview";
 import { PaluwaganList } from "@/components/money/PaluwaganList";
+import { Plan } from "@/components/money/Plan";
 import { Transactions } from "@/components/money/Transactions";
 import { Button, Card, Field, Input, SectionTitle } from "@/components/money/ui";
 import { peso, summarize } from "@/lib/finance/analytics";
@@ -27,6 +28,7 @@ export default function MoneyPage() {
   const f = useFinance();
   const [tab, setTab] = useState<TabId>("overview");
   const [ledgerSide, setLedgerSide] = useState<"monthly" | "pal" | "out" | "in">("monthly");
+  const [goalSide, setGoalSide] = useState<"plan" | "goals">("plan");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -110,7 +112,27 @@ export default function MoneyPage() {
             <Debts debts={f.state.debts} onAdd={f.addDebt} onUpdate={f.updateDebt} onRemove={f.removeDebt} />
           )}
           {tab === "goals" && (
-            <Goals state={f.state} onAdd={f.addGoal} onUpdate={f.updateGoal} onRemove={f.removeGoal} />
+            <>
+              <div className="mb-4 flex rounded-xl border border-white/10 p-1">
+                {(["plan", "goals"] as const).map((side) => (
+                  <button
+                    key={side}
+                    type="button"
+                    onClick={() => setGoalSide(side)}
+                    className={`flex-1 rounded-lg py-2 text-sm transition ${
+                      goalSide === side ? "bg-gold/12 text-gold" : "text-mist"
+                    }`}
+                  >
+                    {side === "plan" ? "6-month plan" : "All goals"}
+                  </button>
+                ))}
+              </div>
+              {goalSide === "plan" ? (
+                <Plan state={f.state} onToggle={(id, done) => f.updatePlanMonth(id, { done })} />
+              ) : (
+                <Goals state={f.state} onAdd={f.addGoal} onUpdate={f.updateGoal} onRemove={f.removeGoal} />
+              )}
+            </>
           )}
           {tab === "insights" && <Insights state={f.state} />}
         </>

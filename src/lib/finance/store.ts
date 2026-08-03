@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SEED_STATE } from "./seed";
-import type { Commitment, Debt, FinanceState, Goal, Income, Paluwagan, Settings, Transaction } from "./types";
+import type { Commitment, Debt, FinanceState, Goal, Income, Paluwagan, PlanMonth, Settings, Transaction } from "./types";
 
 const STORAGE_KEY = "geminel.money.v1";
 
@@ -19,6 +19,7 @@ function load(): FinanceState {
       paluwagan: parsed.paluwagan ?? SEED_STATE.paluwagan,
       debts: parsed.debts ?? SEED_STATE.debts,
       goals: parsed.goals ?? SEED_STATE.goals,
+      plan: parsed.plan ?? SEED_STATE.plan,
       settings: { ...SEED_STATE.settings, ...parsed.settings },
     };
   } catch {
@@ -127,6 +128,10 @@ export function useFinance() {
     setState((s) => ({ ...s, goals: s.goals.filter((g) => g.id !== id) }));
   }, []);
 
+  const updatePlanMonth = useCallback((id: string, patch: Partial<PlanMonth>) => {
+    setState((s) => ({ ...s, plan: s.plan.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+  }, []);
+
   const updateSettings = useCallback((patch: Partial<Settings>) => {
     setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
   }, []);
@@ -156,6 +161,7 @@ export function useFinance() {
     addGoal,
     updateGoal,
     removeGoal,
+    updatePlanMonth,
     updateSettings,
     resetToSeed,
     exportJson,

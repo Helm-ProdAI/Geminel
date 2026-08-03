@@ -159,6 +159,26 @@ export interface Goal {
   note?: string;
 }
 
+/** What a slice of a month's surplus is being sent to. */
+export type AllocationKind = "debt" | "safety" | "goal" | "buffer";
+
+export interface Allocation {
+  label: string;
+  amount: number;
+  kind: AllocationKind;
+}
+
+export interface PlanMonth {
+  id: string;
+  /** Display label, e.g. "Aug 2026". */
+  month: string;
+  /** Paluwagan or other lump sums landing this month. */
+  payout: number;
+  allocations: Allocation[];
+  /** Ticked once the month has actually been executed. */
+  done?: boolean;
+}
+
 export interface Settings {
   /**
    * Manual override in PHP. When 0, income is derived from the recurring
@@ -180,5 +200,6 @@ export interface FinanceState {
   paluwagan: Paluwagan[];
   debts: Debt[];
   goals: Goal[];
+  plan: PlanMonth[];
   settings: Settings;
 }

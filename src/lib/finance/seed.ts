@@ -9,6 +9,7 @@ import type {
   Owner,
   Paluwagan,
   Phase,
+  PlanMonth,
   Settings,
   Transaction,
   TxCadence,
@@ -242,7 +243,7 @@ export const SEED_PALUWAGAN: Paluwagan[] = (
     ["B11 50K", 12500, "monthly", 50000, "2026-10-01"],
     ["B12 50K", 12500, "monthly", 50000, "2026-11-01"],
     ["B8 40K", 8000, "biweekly", 40000, "2026-11-01", "Written as Oct–Nov — confirm the month"],
-    ["B 150K", 15000, "monthly", 150000, "2027-02-01"],
+    ["B 150K", 15000, "monthly", 150000, "2027-02-01", "Received early — cash in hand"],
     ["B19 100K", 20000, "monthly", 100000, "2027-03-01"],
     ["B13 50K", 12500, "monthly", 50000, "2027-04-01"],
     ["B10 100K", 20000, "monthly", 100000, "2027-05-01"],
@@ -255,7 +256,7 @@ export const SEED_PALUWAGAN: Paluwagan[] = (
   payout,
   payoutDate,
   note,
-  received: contribution === 0,
+  received: contribution === 0 || name === "B 150K",
 }));
 
 /**
@@ -422,6 +423,71 @@ export const SEED_GOALS: Goal[] = (
  */
 export const DEFAULT_USD_PHP = 59.15;
 
+/**
+ * A six-month schedule for the surplus, month by month. The order is the
+ * argument: protection first because it is cheap and cannot be bought after
+ * the fact, then the live cards because they are still accruing, then a
+ * genuine cash buffer, and only then the settlement fund — which is useless
+ * until it is large enough to make an offer worth accepting.
+ *
+ * The ₱150,000 paluwagan received early lands in August as a payout, which
+ * clears the cards inside the first two months. Each month's allocations sum
+ * to that month's surplus (₱179,829.18) plus any payout landing in it.
+ */
+export const SEED_PLAN: PlanMonth[] = [
+  {
+    id: "m1",
+    month: "Aug 2026",
+    payout: 150000,
+    allocations: [
+      { label: "Term life, both of you", amount: 60000, kind: "goal" },
+      { label: "Cards", amount: 269829.18, kind: "debt" },
+    ],
+  },
+  {
+    id: "m2",
+    month: "Sep 2026",
+    payout: 40000,
+    allocations: [
+      { label: "Cards — cleared", amount: 22570.82, kind: "debt" },
+      { label: "Emergency fund", amount: 197258.36, kind: "safety" },
+    ],
+  },
+  {
+    id: "m3",
+    month: "Oct 2026",
+    payout: 50000,
+    allocations: [
+      { label: "Emergency fund — P250k reached", amount: 52741.64, kind: "safety" },
+      { label: "Settlement fund", amount: 177087.54, kind: "debt" },
+    ],
+  },
+  {
+    id: "m4",
+    month: "Nov 2026",
+    payout: 90000,
+    allocations: [{ label: "Settlement fund", amount: 269829.18, kind: "debt" }],
+  },
+  {
+    id: "m5",
+    month: "Dec 2026",
+    payout: 0,
+    allocations: [
+      { label: "Christmas — six kids, be realistic", amount: 40000, kind: "buffer" },
+      { label: "Settlement fund", amount: 139829.18, kind: "debt" },
+    ],
+  },
+  {
+    id: "m6",
+    month: "Jan 2027",
+    payout: 0,
+    allocations: [
+      { label: "Eldest's college fund", amount: 30000, kind: "goal" },
+      { label: "Settlement fund", amount: 149829.18, kind: "debt" },
+    ],
+  },
+];
+
 export const SEED_SETTINGS: Settings = {
   monthlyIncome: 0,
   usdPhpRate: DEFAULT_USD_PHP,
@@ -437,5 +503,6 @@ export const SEED_STATE: FinanceState = {
   paluwagan: SEED_PALUWAGAN,
   debts: SEED_DEBTS,
   goals: SEED_GOALS,
+  plan: SEED_PLAN,
   settings: SEED_SETTINGS,
 };

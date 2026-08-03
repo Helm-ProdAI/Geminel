@@ -180,9 +180,12 @@ export function summarize(state: FinanceState): Summary {
   const fixedMonthly = state.commitments.filter((c) => c.kind === "fixed").reduce((a, c) => a + c.amount, 0);
   const debtMonthly = state.commitments.filter((c) => c.kind === "debt").reduce((a, c) => a + c.amount, 0);
   // Biweekly slots bill twice a month.
-  const paluwaganMonthly = state.paluwagan
-    .filter((p) => !p.received)
-    .reduce((a, p) => a + p.contribution * (p.cadence === "biweekly" ? 2 : 1), 0);
+  // Contributions continue after your turn — a paluwagan is paid every cycle
+  // regardless of when the payout lands — so `received` does not stop them.
+  const paluwaganMonthly = state.paluwagan.reduce(
+    (a, p) => a + p.contribution * (p.cadence === "biweekly" ? 2 : 1),
+    0
+  );
   const paluwaganDue = state.paluwagan.filter((p) => !p.received).reduce((a, p) => a + p.payout, 0);
   const nextPayout =
     state.paluwagan
