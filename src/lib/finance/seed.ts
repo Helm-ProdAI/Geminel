@@ -4,6 +4,7 @@ import type {
   Debt,
   FinanceState,
   Goal,
+  Commitment,
   Income,
   Settings,
   Transaction,
@@ -181,22 +182,142 @@ export const SEED_INCOME: Income[] = [
 ];
 
 /**
- * Balances are unknown from the ledger and start at 0 — set them in the app.
- * `paidThisPeriod` is derived from the transactions above.
+ * The monthly budget as written down. `fixed` lines are living costs; `debt`
+ * lines are what is being serviced each month on accounts still rolling.
+ * Together they are the run-rate, which is real evidence rather than a
+ * projection from one week of receipts.
  */
+export const SEED_COMMITMENTS: Commitment[] = (
+  [
+    ["Rent", 35000, "fixed"],
+    ["Car", 26362, "fixed"],
+    ["Water", 1000, "fixed"],
+    ["Electricity", 14000, "fixed"],
+    ["Gas", 7000, "fixed"],
+    ["Grocery", 30000, "fixed"],
+    ["School service", 5500, "fixed"],
+    ["Globe WiFi", 1699, "fixed"],
+    ["Converge WiFi", 1898, "fixed"],
+    ["Nanny", 10000, "fixed"],
+    ["Child support", 16000, "fixed"],
+    ["HMO", 8000, "fixed"],
+    ["Insurance", 10000, "fixed"],
+    ["PhilHealth", 1000, "fixed", "Written under a struck-out figure — confirm"],
+    ["Eat out", 20000, "fixed"],
+    ["Shopping", 10000, "fixed"],
+    ["Skincare", 5000, "fixed"],
+    ["Vitamins", 5000, "fixed"],
+    ["Deus (manpower)", 20000, "fixed"],
+    ["Vaccine", 10000, "fixed"],
+    ["Subscriptions", 5000, "fixed"],
+
+    ["Maya — Ella", 22000, "debt"],
+    ["Maya — Gelo", 7600, "debt"],
+    ["Shopee Pay", 22500, "debt"],
+    ["Tonik — Gelo", 3116.93, "debt"],
+    ["Atome — Gelo", 5603.89, "debt", "Payment 5 of 9"],
+    ["BPI card", 20000, "debt", "₱120k outstanding"],
+    ["UB card", 20000, "debt", "₱60k outstanding"],
+    ["Atome — Ella", 28960, "debt"],
+    ["Gelo", 17500, "debt"],
+    ["MAC 3/6", 14145, "debt", "4 payments to go"],
+    ["Paluwagan", 126100, "debt", "Contribution, not a lender — this one builds an asset"],
+  ] as Array<[string, number, "fixed" | "debt", string?]>
+).map(([name, amount, kind, note], i) => ({
+  id: `com-${String(i + 1).padStart(2, "0")}`,
+  name,
+  amount,
+  kind,
+  owner: "me" as const,
+  note,
+}));
+
+/**
+ * Accounts still being serviced monthly. Balances come from the notes beside
+ * each line; where none was written the balance stays 0 until a statement
+ * fills it in.
+ */
+const ROLLING: Array<[string, number, number]> = [
+  ["BPI card", 120000, 20000],
+  ["UB card", 60000, 20000],
+  ["Atome — Ella", 0, 28960],
+  ["Maya — Ella", 0, 22000],
+  ["Shopee Pay", 0, 22500],
+  ["MAC 3/6", 0, 14145],
+];
+
+/**
+ * Already defaulted and with recovery agents. Face value is what is claimed,
+ * not necessarily what settles — collections accounts are usually negotiable,
+ * which is exactly why they need listing rather than avoiding.
+ */
+const COLLECTIONS: Array<[string, number, string?]> = [
+  ["Revi", 200000],
+  ["Home Credit 2", 137414.27],
+  ["GCredit", 51887.43],
+  ["GGives", 38625.94],
+  ["Tokcash", 34214],
+  ["FT Lending", 35000],
+  ["BOO", 30000],
+  ["Home Credit 3", 30351.1],
+  ["Juanhand", 28000],
+  ["Tala", 27346.2],
+  ["Tonik", 26611.32],
+  ["Salmon", 25000],
+  ["Cashalo", 20304.47],
+  ["Cashalo 2", 20000],
+  ["Bluease", 20000],
+  ["GGives B", 19371.3],
+  ["Home Credit 1", 15599.21],
+  ["Quarta 4", 13044.45],
+  ["GGives A", 5931.35],
+];
+
+/** Gelo's accounts, tracked separately so household and personal stay distinct. */
+const COLLECTIONS_GELO: Array<[string, number]> = [
+  ["CIMB Revi", 208000],
+  ["CIMB Loan", 50000],
+  ["GGives 1", 50000],
+  ["GGives 2", 20000],
+  ["GGives 3", 15000],
+  ["GCredit", 10000],
+];
+
 export const SEED_DEBTS: Debt[] = [
-  { id: "bpi", name: "BPI credit card", balance: 0, paidThisPeriod: 14000, note: "₱14,000 paid this period" },
-  { id: "atome", name: "Atome", balance: 0, paidThisPeriod: 14506.8 },
-  { id: "shopee-loan", name: "Shopee loan", balance: 0, paidThisPeriod: 5002.86 },
-  { id: "pnb", name: "PNB", balance: 0, paidThisPeriod: 2658.2 },
   {
-    id: "rcbc",
-    name: "RCBC",
-    balance: 23704.99,
-    paidThisPeriod: 160,
-    note: "Balance read from the ₱23,704.99 figure bracketed beside RCBC — confirm this",
+    id: "car-loan",
+    name: "Car loan",
+    balance: 633137.46,
+    paidThisPeriod: 26362,
+    status: "rolling",
+    owner: "me",
+    note: "₱738,136 over 28 months; ₱633,137.46 to settle early",
   },
-  { id: "maribank", name: "Maribank", balance: 0, paidThisPeriod: 150 },
+  ...ROLLING.map(([name, balance, paidThisPeriod], i) => ({
+    id: `roll-${i + 1}`,
+    name,
+    balance,
+    paidThisPeriod,
+    status: "rolling" as const,
+    owner: "me" as const,
+  })),
+  ...COLLECTIONS.map(([name, balance, note], i) => ({
+    id: `col-${i + 1}`,
+    name,
+    balance,
+    paidThisPeriod: 0,
+    status: "collections" as const,
+    owner: "me" as const,
+    note,
+  })),
+  ...COLLECTIONS_GELO.map(([name, balance], i) => ({
+    id: `colg-${i + 1}`,
+    name,
+    balance,
+    paidThisPeriod: 0,
+    status: "collections" as const,
+    owner: "partner" as const,
+  })),
 ];
 
 export const SEED_GOALS: Goal[] = [
@@ -234,6 +355,7 @@ export const SEED_SETTINGS: Settings = {
 export const SEED_STATE: FinanceState = {
   transactions: SEED_TRANSACTIONS,
   income: SEED_INCOME,
+  commitments: SEED_COMMITMENTS,
   debts: SEED_DEBTS,
   goals: SEED_GOALS,
   settings: SEED_SETTINGS,

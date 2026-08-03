@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Commitments } from "@/components/money/Commitments";
 import { Debts } from "@/components/money/Debts";
 import { Goals } from "@/components/money/Goals";
 import { IncomeList } from "@/components/money/IncomeList";
@@ -8,7 +9,7 @@ import { Insights } from "@/components/money/Insights";
 import { Overview } from "@/components/money/Overview";
 import { Transactions } from "@/components/money/Transactions";
 import { Button, Card, Field, Input, SectionTitle } from "@/components/money/ui";
-import { peso } from "@/lib/finance/analytics";
+import { peso, summarize } from "@/lib/finance/analytics";
 import { useFinance } from "@/lib/finance/store";
 
 const TABS = [
@@ -24,7 +25,7 @@ type TabId = (typeof TABS)[number]["id"];
 export default function MoneyPage() {
   const f = useFinance();
   const [tab, setTab] = useState<TabId>("overview");
-  const [ledgerSide, setLedgerSide] = useState<"out" | "in">("out");
+  const [ledgerSide, setLedgerSide] = useState<"out" | "in" | "monthly">("monthly");
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
@@ -49,7 +50,7 @@ export default function MoneyPage() {
           {tab === "transactions" && (
             <>
               <div className="mb-4 flex rounded-xl border border-white/10 p-1">
-                {(["out", "in"] as const).map((side) => (
+                {(["monthly", "out", "in"] as const).map((side) => (
                   <button
                     key={side}
                     type="button"
@@ -58,11 +59,19 @@ export default function MoneyPage() {
                       ledgerSide === side ? "bg-gold/12 text-gold" : "text-mist"
                     }`}
                   >
-                    {side === "out" ? "Spending" : "Income"}
+                    {side === "monthly" ? "Monthly" : side === "out" ? "Spending" : "Income"}
                   </button>
                 ))}
               </div>
-              {ledgerSide === "out" ? (
+              {ledgerSide === "monthly" ? (
+                <Commitments
+                  commitments={f.state.commitments}
+                  monthlyIncome={summarize(f.state).monthlyIncome}
+                  onAdd={f.addCommitment}
+                  onUpdate={f.updateCommitment}
+                  onRemove={f.removeCommitment}
+                />
+              ) : ledgerSide === "out" ? (
                 <Transactions
                   transactions={f.state.transactions}
                   periodStart={f.state.settings.periodStart}

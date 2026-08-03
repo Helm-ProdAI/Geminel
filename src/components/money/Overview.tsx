@@ -68,7 +68,7 @@ export function Overview({ state }: { state: FinanceState }) {
         <Stat
           label="Monthly run-rate"
           value={peso(s.projectedMonth)}
-          sub="Each line on its own rhythm"
+          sub={state.commitments.length > 0 ? "Your written monthly budget" : "Each line on its own rhythm"}
           tone={s.monthlySurplus !== null && s.monthlySurplus < 0 ? "alert" : "default"}
         />
       </div>
@@ -98,6 +98,19 @@ export function Overview({ state }: { state: FinanceState }) {
           </p>
         </Card>
       )}
+
+      {s.inCollections > 0 ? (
+        <Card className="mt-3 border-[#F09A9A]/35">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[11px] uppercase tracking-wider text-mist/80">In collections</span>
+            <span className="font-serif text-xl text-[#F09A9A]">{peso(s.inCollections, { compact: true })}</span>
+          </div>
+          <p className="mt-2 text-xs text-mist">
+            {s.collectionsCount} defaulted accounts, {peso(s.inCollectionsMine)} of it in your name. This sits outside
+            the monthly figures above — none of it is being serviced.
+          </p>
+        </Card>
+      ) : null}
 
       <SectionTitle hint={`${cats.length} categories`}>Where it went</SectionTitle>
       <Card>

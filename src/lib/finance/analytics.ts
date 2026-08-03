@@ -115,6 +115,19 @@ export interface Summary {
   incomeIn: number;
   /** Period income that was your own capital coming back, not earnings. */
   capitalReturned: number;
+  /** Monthly living costs, excluding debt servicing. */
+  fixedMonthly: number;
+  /** Monthly debt servicing on accounts still rolling. */
+  debtMonthly: number;
+  /** fixedMonthly + debtMonthly. */
+  committedMonthly: number;
+  /** Face value of every defaulted account, both owners. */
+  inCollections: number;
+  /** Face value of defaulted accounts in your name only. */
+  inCollectionsMine: number;
+  /** Outstanding on accounts still being serviced. */
+  rollingBalances: number;
+  collectionsCount: number;
   /** Repeating monthly income in PHP — household, at the configured FX rate. */
   monthlyIncome: number;
   /** Repeating monthly income from your own sources only. */
@@ -146,9 +159,26 @@ export function summarize(state: FinanceState): Summary {
   // unusual week is not multiplied into a monthly figure it never was.
   const oneOff = sumWhere((t) => t.cadence === "once");
   const recurringBurn = total - oneOff;
-  // Each line projects on its own cadence rather than the whole week being
-  // multiplied up, so monthly installments are not counted four times over.
-  const projectedMonth = transactions.reduce((acc, t) => acc + monthlyCost(t, days), 0);
+  // A written monthly budget beats projecting one week of receipts, so when
+  // commitments exist they are the run-rate. Otherwise fall back to projecting
+  // each transaction on its own cadence.
+  const fixedMonthly = state.commitments.filter((c) => c.kind === "fixed").reduce((a, c) => a + c.amount, 0);
+  const debtMonthly = state.commitments.filter((c) => c.kind === "debt").reduce((a, c) => a + c.amount, 0);
+  const committedMonthly = fixedMonthly + debtMonthly;
+  const projectedMonth =
+    state.commitments.length > 0
+      ? committedMonthly
+      : transactions.reduce((acc, t) => acc + monthlyCost(t, days), 0);
+
+  const inCollections = state.debts
+    .filter((d) => d.status === "collections")
+    .reduce((a, d) => a + d.balance, 0);
+  const inCollectionsMine = state.debts
+    .filter((d) => d.status === "collections" && d.owner === "me")
+    .reduce((a, d) => a + d.balance, 0);
+  const rollingBalances = state.debts
+    .filter((d) => d.status === "rolling")
+    .reduce((a, d) => a + d.balance, 0);
 
   const capitalReturned = income
     .filter((i) => i.returnOfCapital)
@@ -174,6 +204,13 @@ export function summarize(state: FinanceState): Summary {
     birthday,
     recurringBurn,
     unlabeled: sumWhere((t) => t.category === "other"),
+    fixedMonthly,
+    debtMonthly,
+    committedMonthly,
+    inCollections,
+    inCollectionsMine,
+    rollingBalances,
+    collectionsCount: state.debts.filter((d) => d.status === "collections").length,
     incomeIn,
     capitalReturned,
     monthlyIncome,
@@ -237,6 +274,40 @@ export function buildInsights(state: FinanceState): Insight[] {
     });
   }
 
+  if (s.inCollections > 0) {
+    const monthsOfSurplus = s.monthlySurplus && s.monthlySurplus > 0 ? s.inCollections / s.monthlySurplus : null;
+    out.unshift({
+      id: "collections",
+      tone: "alert",
+      title: `${peso(s.inCollections)} across ${s.collectionsCount} accounts is in collections`,
+      body: `${peso(
+        s.inCollectionsMine
+      )} of it is in your name. Nothing here is being serviced, so it is not in the run-rate — but it is the largest single fact about your finances and it does not go away on its own.${
+        monthsOfSurplus !== null && monthsOfSurplus > 24
+          ? ` At your current surplus it would take ${Math.round(
+              monthsOfSurplus
+            )} months to clear at face value, which is why settlement rather than repayment is the realistic path.`
+          : ""
+      } Defaulted consumer debt in the Philippines commonly settles well under face value, and agencies deal best with whoever engages first and in writing.`,
+    });
+  }
+
+  if (s.committedMonthly > 0 && s.monthlyIncome > 0) {
+    const share = s.committedMonthly / s.monthlyIncome;
+    out.push({
+      id: "committed",
+      tone: share > 0.9 ? "alert" : share > 0.75 ? "warn" : "info",
+      title: `${pct(share)} of income is committed before you spend anything`,
+      body: `${peso(s.fixedMonthly)} of living costs and ${peso(
+        s.debtMonthly
+      )} of debt servicing come to ${peso(s.committedMonthly)} a month against ${peso(
+        s.monthlyIncome
+      )} coming in. That leaves ${peso(
+        s.monthlyIncome - s.committedMonthly
+      )} of genuine slack — one missed contract or one bad exchange-rate month erases it.`,
+    });
+  }
+
   if (s.monthlyIncomeMine > 0 && s.monthlyIncomeMine < s.monthlyIncome) {
     const partner = s.monthlyIncome - s.monthlyIncomeMine;
     const soloSurplus = s.monthlyIncomeMine - s.projectedMonth;
@@ -274,14 +345,18 @@ export function buildInsights(state: FinanceState): Insight[] {
     )} a month. If something is filed under the wrong rhythm, change it in the ledger and every figure here corrects itself.`,
   });
 
-  if (s.debtPaid > 0) {
+  if (s.debtMonthly > 0) {
     out.push({
-      id: "debt",
+      id: "debt-service",
       tone: "warn",
-      title: `${peso(s.debtPaid)} went to debt in one week`,
-      body: `That is ${pct(s.debtPaid / s.total)} of everything you spent, spread across ${
-        new Set(state.transactions.filter((t) => t.category === "debt").map((t) => t.merchant)).size
-      } lenders. Servicing several balances at once is the expensive way to carry debt — list every balance and APR under Debts, then pay them down highest-rate first and stop spreading payments evenly.`,
+      title: `${peso(s.debtMonthly)} a month goes to servicing debt`,
+      body: `That is ${pct(
+        s.debtMonthly / s.monthlyIncome
+      )} of household income, spread across ${
+        state.commitments.filter((c) => c.kind === "debt").length
+      } lines — and it buys down almost none of the ${peso(
+        s.inCollections
+      )} already in collections. Money is going out fast without the position improving. Get APRs on every rolling account, because some of these are almost certainly costing more than others.`,
     });
   }
 

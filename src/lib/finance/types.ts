@@ -73,6 +73,13 @@ export interface Income {
   dateEstimated?: boolean;
 }
 
+/**
+ * Where an account stands. `rolling` is being serviced monthly; `collections`
+ * has already defaulted and been handed to recovery, which changes both the
+ * urgency and what can be negotiated.
+ */
+export type DebtStatus = "rolling" | "collections";
+
 export interface Debt {
   id: string;
   name: string;
@@ -82,6 +89,24 @@ export interface Debt {
   paidThisPeriod: number;
   /** Annual interest rate as a percentage, when known. */
   apr?: number;
+  status: DebtStatus;
+  owner: Owner;
+  note?: string;
+}
+
+/**
+ * A fixed monthly outgoing. These are the real run-rate — far better evidence
+ * than projecting a single week of receipts, so when any exist they replace
+ * the transaction-derived projection.
+ */
+export interface Commitment {
+  id: string;
+  name: string;
+  /** PHP per month. */
+  amount: number;
+  /** `debt` is servicing a balance; `fixed` is a living cost. */
+  kind: "fixed" | "debt";
+  owner: Owner;
   note?: string;
 }
 
@@ -112,6 +137,7 @@ export interface Settings {
 export interface FinanceState {
   transactions: Transaction[];
   income: Income[];
+  commitments: Commitment[];
   debts: Debt[];
   goals: Goal[];
   settings: Settings;

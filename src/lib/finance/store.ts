@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SEED_STATE } from "./seed";
-import type { Debt, FinanceState, Goal, Income, Settings, Transaction } from "./types";
+import type { Commitment, Debt, FinanceState, Goal, Income, Settings, Transaction } from "./types";
 
 const STORAGE_KEY = "geminel.money.v1";
 
@@ -15,6 +15,7 @@ function load(): FinanceState {
     return {
       transactions: parsed.transactions ?? SEED_STATE.transactions,
       income: parsed.income ?? SEED_STATE.income,
+      commitments: parsed.commitments ?? SEED_STATE.commitments,
       debts: parsed.debts ?? SEED_STATE.debts,
       goals: parsed.goals ?? SEED_STATE.goals,
       settings: { ...SEED_STATE.settings, ...parsed.settings },
@@ -74,6 +75,21 @@ export function useFinance() {
     setState((s) => ({ ...s, income: s.income.filter((i) => i.id !== id) }));
   }, []);
 
+  const addCommitment = useCallback((c: Omit<Commitment, "id">) => {
+    setState((s) => ({ ...s, commitments: [...s.commitments, { ...c, id: `com-${Date.now()}` }] }));
+  }, []);
+
+  const updateCommitment = useCallback((id: string, patch: Partial<Commitment>) => {
+    setState((s) => ({
+      ...s,
+      commitments: s.commitments.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
+  }, []);
+
+  const removeCommitment = useCallback((id: string) => {
+    setState((s) => ({ ...s, commitments: s.commitments.filter((c) => c.id !== id) }));
+  }, []);
+
   const updateDebt = useCallback((id: string, patch: Partial<Debt>) => {
     setState((s) => ({ ...s, debts: s.debts.map((d) => (d.id === id ? { ...d, ...patch } : d)) }));
   }, []);
@@ -115,6 +131,9 @@ export function useFinance() {
     addIncome,
     updateIncome,
     removeIncome,
+    addCommitment,
+    updateCommitment,
+    removeCommitment,
     addDebt,
     updateDebt,
     removeDebt,

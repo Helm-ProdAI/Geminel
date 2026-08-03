@@ -26,12 +26,17 @@ for a data layer with the same shape; nothing else needs to change.
 | Tab | What it does |
 | --- | --- |
 | Overview | Period total, daily rate, debt vs one-off split, monthly run-rate, category breakdown |
-| Ledger | Two sides. **Spending**: search, filter, tap a row to edit or delete. **Income**: sources with a cadence that decides what counts as repeating |
-| Debts | Accounts ordered highest-APR-first (avalanche). Enter balances and rates to make the order meaningful |
+| Ledger | Three sides. **Monthly**: the written budget — living costs and debt servicing. **Spending**: the transaction ledger. **Income**: sources with a cadence |
+| Debts | Split by status. **Collections** (defaulted, largest first) and **Rolling** (serviced monthly, highest-APR first) |
 | Goals | Targets with progress, and months-to-target computed from your monthly surplus |
 | Advice | Generated findings and a five-step plan, recomputed from whatever is currently in the ledger |
 
 ## How the run-rate is computed
+
+**When commitments exist they are the run-rate.** A written monthly budget is far
+better evidence than extrapolating one week of receipts, so `summarize` uses the
+sum of `commitments` whenever any are present. The projection below is the
+fallback for a state with none.
 
 Projecting a single week by multiplying it by 30/7 is wrong whenever the week
 contained monthly commitments. This ledger did — roughly ₱36k of card and loan
@@ -87,9 +92,21 @@ matters if the household ever has to run on one income.
 The birthday block reconciles exactly against the subtotal written in the notebook
 (₱42,365.45), which is the check that the transcription of that section is correct.
 
-Balances were not in the notebook, only payments — so every debt starts at 0 except
-RCBC, which is seeded from the ₱23,704.99 figure bracketed beside it and marked for
-confirmation.
+## Debt status
+
+Accounts carry a `status`:
+
+- **`rolling`** — being serviced monthly. Ordered highest-APR-first, the standard
+  avalanche, because interest compounds hardest at the top.
+- **`collections`** — already defaulted and with recovery agents. Ordered largest
+  first instead, because these are settled rather than amortised and a negotiated
+  discount on a big balance frees more than clearing several small ones.
+
+Collections balances are excluded from the run-rate — nothing is being paid on
+them — but surfaced prominently on Overview, since leaving them out of the monthly
+figures makes the position look far better than it is.
+
+Debts also carry an `owner`, so household and personal exposure stay distinct.
 
 ## Adding a category
 
