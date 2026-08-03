@@ -56,6 +56,20 @@ never be planned around, so it is excluded from every projection.
 Monthly income is derived from the income ledger. `settings.monthlyIncome` is a
 manual override, used only when non-zero.
 
+## Currency
+
+Income is earned in USD and spent in PHP, so each income line carries its own
+`currency` and converts at `settings.usdPhpRate`. Spending is PHP throughout.
+
+The seeded rate, 59.15, is derived rather than guessed: SuperiorPro's $500 landed
+as ₱29,574.29 in the period, and the WFMO and Thrive receipts reconcile at roughly
+a half-month each on the same rate. It is editable in the Income tab and should be
+set to the post-remittance rate actually received, not mid-market.
+
+Income lines also carry an `owner` (`me` / `partner`) so the app can separate
+household income from what the primary earner brings in alone — the figure that
+matters if the household ever has to run on one income.
+
 ## The seeded data
 
 `src/lib/finance/seed.ts` holds the transcribed ledger. Two things worth knowing:

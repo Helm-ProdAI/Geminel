@@ -73,9 +73,11 @@ export default function MoneyPage() {
               ) : (
                 <IncomeList
                   income={f.state.income}
+                  settings={f.state.settings}
                   onAdd={f.addIncome}
                   onUpdate={f.updateIncome}
                   onRemove={f.removeIncome}
+                  onRateChange={(usdPhpRate) => f.updateSettings({ usdPhpRate })}
                 />
               )}
             </>

@@ -1,5 +1,5 @@
 import { CATEGORY_MAP, CATEGORIES } from "./seed";
-import type { Cadence, CategoryId, FinanceState, Income, Transaction, TxCadence } from "./types";
+import type { Cadence, CategoryId, FinanceState, Income, Settings, Transaction, TxCadence } from "./types";
 
 /** How many times a cadence lands in a month. `once` never repeats. */
 const PER_MONTH: Record<Cadence, number> = {
@@ -40,9 +40,14 @@ export function monthlyCost(t: Transaction, periodDays: number): number {
   }
 }
 
-/** Monthly value of a single income line, 0 for anything that does not repeat. */
-export function monthlyValue(i: Income): number {
-  return i.amount * PER_MONTH[i.cadence];
+/** A single income line converted to pesos at the configured rate. */
+export function toPeso(i: Income, settings: Settings): number {
+  return i.currency === "USD" ? i.amount * settings.usdPhpRate : i.amount;
+}
+
+/** Monthly peso value of one income line; 0 for anything that does not repeat. */
+export function monthlyValue(i: Income, settings: Settings): number {
+  return toPeso(i, settings) * PER_MONTH[i.cadence];
 }
 
 export function peso(n: number, opts: { compact?: boolean } = {}): string {
@@ -110,8 +115,10 @@ export interface Summary {
   incomeIn: number;
   /** Period income that was your own capital coming back, not earnings. */
   capitalReturned: number;
-  /** Repeating monthly income — derived from cadence, or the manual override. */
+  /** Repeating monthly income in PHP — household, at the configured FX rate. */
   monthlyIncome: number;
+  /** Repeating monthly income from your own sources only. */
+  monthlyIncomeMine: number;
   /** True when monthlyIncome came from Settings rather than the income ledger. */
   incomeIsOverride: boolean;
   /** Money in minus money out, for this period only. */
@@ -122,7 +129,7 @@ export interface Summary {
 
 export function monthlyIncomeOf(state: FinanceState): { value: number; isOverride: boolean } {
   if (state.settings.monthlyIncome > 0) return { value: state.settings.monthlyIncome, isOverride: true };
-  return { value: state.income.reduce((s, i) => s + monthlyValue(i), 0), isOverride: false };
+  return { value: state.income.reduce((s, i) => s + monthlyValue(i, state.settings), 0), isOverride: false };
 }
 
 export function summarize(state: FinanceState): Summary {
@@ -143,9 +150,16 @@ export function summarize(state: FinanceState): Summary {
   // multiplied up, so monthly installments are not counted four times over.
   const projectedMonth = transactions.reduce((acc, t) => acc + monthlyCost(t, days), 0);
 
-  const incomeIn = income.reduce((s, i) => s + i.amount, 0);
-  const capitalReturned = income.filter((i) => i.returnOfCapital).reduce((s, i) => s + i.amount, 0);
+  const capitalReturned = income
+    .filter((i) => i.returnOfCapital)
+    .reduce((s, i) => s + toPeso(i, settings), 0);
   const { value: monthlyIncome, isOverride } = monthlyIncomeOf(state);
+  // Household is everything; personal strips out a partner's earnings, which is
+  // the figure that matters if the household ever has to run on one income.
+  const monthlyIncomeMine = income
+    .filter((i) => i.owner === "me")
+    .reduce((s, i) => s + monthlyValue(i, settings), 0);
+  const incomeIn = capitalReturned;
 
   return {
     total,
@@ -163,6 +177,7 @@ export function summarize(state: FinanceState): Summary {
     incomeIn,
     capitalReturned,
     monthlyIncome,
+    monthlyIncomeMine,
     incomeIsOverride: isOverride,
     netThisPeriod: incomeIn - total,
     savingsRate: monthlyIncome > 0 ? 1 - projectedMonth / monthlyIncome : null,
@@ -222,34 +237,27 @@ export function buildInsights(state: FinanceState): Insight[] {
     });
   }
 
+  if (s.monthlyIncomeMine > 0 && s.monthlyIncomeMine < s.monthlyIncome) {
+    const partner = s.monthlyIncome - s.monthlyIncomeMine;
+    const soloSurplus = s.monthlyIncomeMine - s.projectedMonth;
+    out.push({
+      id: "single-income",
+      tone: soloSurplus >= 0 ? "info" : "warn",
+      title: `${peso(partner)} a month of this is your husband's`,
+      body: `Your own sources come to ${peso(s.monthlyIncomeMine)}. Against a ${peso(
+        s.projectedMonth
+      )} run-rate that alone would leave ${
+        soloSurplus >= 0 ? `${peso(soloSurplus)} spare` : `a ${peso(Math.abs(soloSurplus))} shortfall`
+      }. Worth knowing which side of the line you are on before you commit to anything long-term.`,
+    });
+  }
+
   if (s.capitalReturned > 0) {
     out.push({
       id: "capital",
       tone: "warn",
-      title: `${peso(s.capitalReturned)} of what came in was not income`,
-      body: `Your paluwagan payout is your own contributions coming back. It spends like income, which is exactly why it is dangerous to plan around — it arrives once and then it is gone. Real repeating income is ${peso(
-        s.monthlyIncome
-      )} a month, and that is the number every decision here should be sized against.`,
-    });
-  }
-
-  if (s.incomeIn > 0) {
-    const positive = s.netThisPeriod >= 0;
-    out.push({
-      id: "net",
-      tone: positive ? "good" : "alert",
-      title: `${positive ? "You ended the period up" : "You ended the period down"} ${peso(
-        Math.abs(s.netThisPeriod)
-      )}`,
-      body: `${peso(s.incomeIn)} came in against ${peso(s.total)} going out.${
-        positive && s.capitalReturned > 0
-          ? ` But ${peso(
-              s.capitalReturned
-            )} of that was the paluwagan — strip it out and the period is ${
-              s.incomeIn - s.capitalReturned - s.total >= 0 ? "still positive by " : "negative by "
-            }${peso(Math.abs(s.incomeIn - s.capitalReturned - s.total))}. That is the honest version.`
-          : ""
-      }`,
+      title: `The ${peso(s.capitalReturned)} paluwagan is not income`,
+      body: `It is your own contributions coming back. It spends like income, which is exactly why it is dangerous to plan around — it arrives once and then it is gone. Give it a job now: a debt it clears, or a fund it starts. Otherwise it quietly becomes ordinary spending.`,
     });
   }
 
@@ -319,6 +327,35 @@ export function buildInsights(state: FinanceState): Insight[] {
       body: `${peso(
         s.flexible
       )} of the period went to things you chose rather than things you owed. That is uncomfortable to read but it is good news: it means the fix is within your control and does not require earning more first.`,
+    });
+  }
+
+  const earners = state.income.filter((i) => !i.returnOfCapital);
+  if (earners.length > 1) {
+    const biggest = earners.reduce((a, b) =>
+      monthlyValue(b, state.settings) > monthlyValue(a, state.settings) ? b : a
+    );
+    const share = monthlyValue(biggest, state.settings) / s.monthlyIncome;
+    if (share > 0.25) {
+      out.push({
+        id: "concentration",
+        tone: "info",
+        title: `${biggest.source} is ${pct(share)} of household income`,
+        body: `Across ${earners.length} contracts that is your largest single dependency. Contract income has no notice period — losing this one costs ${peso(
+          monthlyValue(biggest, state.settings)
+        )} a month overnight. That is the case for an emergency fund sized in months, not pesos.`,
+      });
+    }
+  }
+
+  if (state.income.some((i) => i.currency === "USD")) {
+    out.push({
+      id: "fx",
+      tone: "info",
+      title: "You earn in dollars and spend in pesos",
+      body: `Every figure here converts at ₱${state.settings.usdPhpRate} to the dollar. A five-peso move in that rate swings household income by about ${peso(
+        state.income.filter((i) => i.currency === "USD" && i.cadence === "monthly").reduce((a, i) => a + i.amount, 0) * 5
+      )} a month — up or down, without you doing anything. Keep the rate current, and treat a strong-peso month as the stress test.`,
     });
   }
 

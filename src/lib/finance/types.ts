@@ -49,10 +49,18 @@ export type TxCadence = "once" | "period" | "weekly" | "monthly";
 /** How often a money-in line repeats. */
 export type Cadence = "once" | "weekly" | "semimonthly" | "monthly";
 
+export type Currency = "PHP" | "USD";
+
+/** Whose income it is. Household totals include both; personal totals do not. */
+export type Owner = "me" | "partner";
+
 export interface Income {
   id: string;
   date: string;
+  /** In `currency`, not always PHP. Converted at settings.usdPhpRate. */
   amount: number;
+  currency: Currency;
+  owner: Owner;
   source: string;
   cadence: Cadence;
   /**
@@ -93,6 +101,8 @@ export interface Settings {
    * entries on the Income ledger instead.
    */
   monthlyIncome: number;
+  /** Pesos per US dollar. Every USD income line converts at this rate. */
+  usdPhpRate: number;
   /** Monthly ceiling for flexible categories. */
   monthlyBudget: number;
   periodStart: string;

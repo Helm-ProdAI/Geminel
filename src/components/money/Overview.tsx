@@ -23,36 +23,37 @@ export function Overview({ state }: { state: FinanceState }) {
         </div>
       </Card>
 
-      {s.incomeIn > 0 ? (
+      {s.monthlyIncome > 0 ? (
         <Card className="mt-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-mist/80">In</div>
-              <div className="whitespace-nowrap font-serif text-xl text-[#6EC4A0]">{peso(s.incomeIn, { compact: true })}</div>
+              <div className="text-[11px] uppercase tracking-wider text-mist/80">Income</div>
+              <div className="whitespace-nowrap font-serif text-xl text-[#6EC4A0]">
+                {peso(s.monthlyIncome, { compact: true })}
+              </div>
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-mist/80">Out</div>
-              <div className="whitespace-nowrap font-serif text-xl text-cloud">{peso(s.total, { compact: true })}</div>
+              <div className="text-[11px] uppercase tracking-wider text-mist/80">Run-rate</div>
+              <div className="whitespace-nowrap font-serif text-xl text-cloud">
+                {peso(s.projectedMonth, { compact: true })}
+              </div>
             </div>
             <div className="text-right">
-              <div className="text-[11px] uppercase tracking-wider text-mist/80">Net</div>
+              <div className="text-[11px] uppercase tracking-wider text-mist/80">Surplus</div>
               <div
                 className={`whitespace-nowrap font-serif text-xl ${
-                  s.netThisPeriod >= 0 ? "text-[#6EC4A0]" : "text-[#F09A9A]"
+                  (s.monthlySurplus ?? 0) >= 0 ? "text-[#6EC4A0]" : "text-[#F09A9A]"
                 }`}
               >
-                {s.netThisPeriod >= 0 ? "+" : "−"}
-                {peso(Math.abs(s.netThisPeriod), { compact: true })}
+                {(s.monthlySurplus ?? 0) >= 0 ? "+" : "−"}
+                {peso(Math.abs(s.monthlySurplus ?? 0), { compact: true })}
               </div>
             </div>
           </div>
-          {s.capitalReturned > 0 ? (
-            <p className="mt-2.5 border-t border-white/8 pt-2.5 text-xs text-mist">
-              {peso(s.capitalReturned)} of that was capital returning, not earnings. Without it the period is{" "}
-              {s.incomeIn - s.capitalReturned - s.total >= 0 ? "up " : "down "}
-              {peso(Math.abs(s.incomeIn - s.capitalReturned - s.total))}.
-            </p>
-          ) : null}
+          <p className="mt-2.5 border-t border-white/8 pt-2.5 text-xs text-mist">
+            Per month. Your own sources are {peso(s.monthlyIncomeMine)} of the {peso(s.monthlyIncome)} household
+            total{s.capitalReturned > 0 ? `, and the ${peso(s.capitalReturned)} paluwagan sits outside both` : ""}.
+          </p>
         </Card>
       ) : null}
 

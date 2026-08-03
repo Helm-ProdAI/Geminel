@@ -152,30 +152,32 @@ export const SEED_TRANSACTIONS: Transaction[] = RAW.map(([merchant, amount, cate
 }));
 
 /**
- * Money in over the same period. Cadence drives the monthly figure, so a
- * lump sum does not get multiplied into income that is not there.
+ * Recurring income by source, in the currency it is actually paid in.
+ * The four USD contracts are yours; the last two are your husband's, so the
+ * app can show household and personal totals separately.
+ *
+ * The paluwagan is the one PHP line and the one that is not earnings — it is
+ * your own contributions maturing, so it is excluded from every projection.
  */
 export const SEED_INCOME: Income[] = [
+  { id: "inc-mla", date: PERIOD_START, amount: 1900, currency: "USD", owner: "me", source: "My Legal Academy", cadence: "monthly" },
+  { id: "inc-thrive", date: PERIOD_START, amount: 2300, currency: "USD", owner: "me", source: "Thrive Academy", cadence: "monthly" },
+  { id: "inc-wfmo", date: PERIOD_START, amount: 2500, currency: "USD", owner: "me", source: "WFMO", cadence: "monthly" },
+  { id: "inc-superiorpro", date: PERIOD_START, amount: 500, currency: "USD", owner: "me", source: "SuperiorPro", cadence: "monthly" },
+  { id: "inc-h-wfmo", date: PERIOD_START, amount: 1280, currency: "USD", owner: "partner", source: "WFMO", cadence: "monthly" },
+  { id: "inc-h-mla", date: PERIOD_START, amount: 640, currency: "USD", owner: "partner", source: "My Legal Academy", cadence: "monthly" },
   {
     id: "inc-paluwagan",
     date: PERIOD_START,
     amount: 141872,
+    currency: "PHP",
+    owner: "me",
     source: "Paluwagan",
     cadence: "once",
     returnOfCapital: true,
     note: "Your own contributions coming back — spendable, but not earnings",
     dateEstimated: true,
   },
-  { id: "inc-wfmo", date: PERIOD_START, amount: 76240.1, source: "WFMO pay", cadence: "monthly", dateEstimated: true },
-  {
-    id: "inc-superiorpro",
-    date: PERIOD_START,
-    amount: 29574.29,
-    source: "SuperiorPro pay",
-    cadence: "monthly",
-    dateEstimated: true,
-  },
-  { id: "inc-thrive", date: PERIOD_START, amount: 71031, source: "Thrive pay", cadence: "monthly", dateEstimated: true },
 ];
 
 /**
@@ -203,7 +205,7 @@ export const SEED_GOALS: Goal[] = [
     name: "Emergency fund",
     target: 150000,
     saved: 0,
-    note: "Starter target — roughly 3 months of essential spending. Edit to fit your real costs.",
+    note: "Starter target. With income spread across contracts that can end without notice, six months of essentials is the safer number — raise it once your real essential figure settles.",
   },
   {
     id: "debt-free",
@@ -214,8 +216,16 @@ export const SEED_GOALS: Goal[] = [
   },
 ];
 
+/**
+ * Derived from the peso amounts that actually landed this period: SuperiorPro's
+ * ₱29,574.29 against $500 gives 59.15, and the WFMO and Thrive receipts match
+ * at roughly a half-month each. Confirm against your own remittance rate.
+ */
+export const DEFAULT_USD_PHP = 59.15;
+
 export const SEED_SETTINGS: Settings = {
   monthlyIncome: 0,
+  usdPhpRate: DEFAULT_USD_PHP,
   monthlyBudget: 0,
   periodStart: PERIOD_START,
   periodEnd: PERIOD_END,

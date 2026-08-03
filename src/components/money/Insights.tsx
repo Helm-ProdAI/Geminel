@@ -27,11 +27,19 @@ export function Insights({ state }: { state: FinanceState }) {
       `Close the ${peso(Math.abs(s.monthlySurplus))} monthly gap. Flexible spending is ${peso(
         s.flexible
       )} of this period — that is where the room is.`,
+    s.monthlySurplus !== null &&
+      s.monthlySurplus > 0 &&
+      `Automate the ${peso(
+        s.monthlySurplus
+      )} surplus on payday. A surplus you have to remember to save is a surplus that gets spent.`,
     "Set one flexible-spending ceiling and hold it. Shopping, food and family transfers are where a cut is actually available.",
     s.birthday > 0 &&
       "Open a separate sinking fund for events. The birthday was a quarter of the period; the next one should be pre-funded, not absorbed.",
     s.capitalReturned > 0 &&
-      "Decide where the paluwagan goes before it is spent. A lump sum with no job attached quietly becomes ordinary spending.",
+      `Give the ${peso(
+        s.capitalReturned
+      )} paluwagan a job today — a balance it clears or a fund it starts. A lump sum with no job attached quietly becomes ordinary spending.`,
+    "Keep the dollar rate current in the Income tab. You earn in USD and spend in PHP, so that one number moves everything.",
   ].filter((x): x is string => typeof x === "string");
 
   return (
